@@ -1,0 +1,1514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bench — robotics fundamentals you can grab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0b111c; --panel:#101a29; --panel2:#0d1523; --rule:#22344e; --rule2:#1a2739;
+  --tx:#dde6f3; --mut:#7f90a9; --dim:#5b6a80;
+  --ch1:#5ad2ff;  /* position / angle */
+  --ch2:#ffc247;  /* velocity */
+  --ch3:#ff6b9d;  /* acceleration / force */
+  --ch4:#7ef0b2;  /* jerk / energy */
+  --ref:#8f9fb6;  /* setpoint / reference */
+  --fault:#ff5252;
+  --frame:#b18cff; /* frames, quaternion axes */
+  --disp:'Archivo',system-ui,sans-serif;
+  --body:'Inter Tight',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--ink); color:var(--tx); font-family:var(--body);
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1200px 600px at 78% -10%, #16263c 0%, transparent 60%);
+}
+#app{display:grid; grid-template-columns:250px 1fr; min-height:100%}
+
+/* ---------- rail ---------- */
+#rail{
+  border-right:1px solid var(--rule2); background:linear-gradient(180deg,#0c1421,#0a1019);
+  position:sticky; top:0; height:100vh; overflow-y:auto; padding:18px 0 24px;
+}
+.brand{padding:0 18px 16px; border-bottom:1px solid var(--rule2); margin-bottom:12px}
+.brand h1{font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.02em; margin:0}
+.brand p{font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin:6px 0 0}
+.grp{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim);
+  padding:14px 18px 6px; display:flex; gap:8px; align-items:center}
+.grp:after{content:''; flex:1; height:1px; background:var(--rule2)}
+.nav-i{display:flex; gap:10px; align-items:baseline; padding:5px 18px; cursor:pointer; border-left:2px solid transparent; color:var(--mut); font-size:13.5px}
+.nav-i:hover{color:var(--tx); background:#0f1a2a}
+.nav-i.on{color:var(--tx); border-left-color:var(--ch1); background:#101d30}
+.nav-i:focus-visible{outline:2px solid var(--ch1); outline-offset:-2px}
+.nav-i b{font-family:var(--mono); font-size:11px; color:var(--dim); font-weight:500}
+.nav-i.on b{color:var(--ch1)}
+.legend{margin:18px 14px 0; padding:12px; border:1px solid var(--rule2); border-radius:8px; background:#0c1420}
+.legend h4{font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin:0 0 9px}
+.legend div{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--mut); margin:5px 0}
+.legend i{width:14px; height:2px; border-radius:2px; display:block}
+
+/* ---------- main ---------- */
+#main{padding:34px 40px 90px; max-width:1000px}
+.eyebrow{font-family:var(--mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--ch1); display:flex; gap:10px; align-items:center}
+.eyebrow s{width:26px; height:1px; background:var(--ch1); opacity:.5; display:block}
+h2.title{font-family:var(--disp); font-weight:700; font-size:clamp(24px,3.4vw,34px); letter-spacing:-.025em; line-height:1.12; margin:12px 0 0; display:flex; gap:14px; align-items:baseline}
+h2.title em{font-family:var(--mono); font-style:normal; font-weight:500; font-size:15px; color:var(--dim)}
+.brief{color:#b9c6d8; max-width:66ch; margin:14px 0 22px}
+.brief b{color:var(--tx); font-weight:600}
+.brief code{font-family:var(--mono); font-size:.9em; background:#16233a; border:1px solid var(--rule2); padding:1px 5px; border-radius:4px; color:var(--ch1)}
+
+/* scope panel */
+.scope{border:1px solid var(--rule); border-radius:10px; background:var(--panel2); overflow:hidden; position:relative}
+.scope:before,.scope:after{content:''; position:absolute; width:9px; height:9px; border:1px solid var(--rule); pointer-events:none}
+.scope:before{top:34px; left:6px; border-right:0; border-bottom:0}
+.scope:after{bottom:6px; right:6px; border-left:0; border-top:0}
+.scope-bar{display:flex; align-items:center; gap:12px; padding:8px 12px; border-bottom:1px solid var(--rule2); background:#0b1220}
+.scope-bar .dot{width:6px; height:6px; border-radius:50%; background:var(--ch4); box-shadow:0 0 8px var(--ch4)}
+.scope-bar span{font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim)}
+.scope-bar .eq{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--ch2); letter-spacing:.02em}
+.scope-body{padding:12px}
+.cvwrap{width:100%; position:relative}
+.cvwrap canvas{display:block; width:100%; touch-action:none}
+.cap{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin:2px 0 4px}
+
+/* controls */
+.ctrls{display:flex; flex-wrap:wrap; gap:10px 16px; margin:14px 0 0; padding:14px; border:1px solid var(--rule2); border-radius:9px; background:#0c1421}
+.ctl{min-width:186px; flex:1 1 186px}
+.ctl-lab{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--mut); margin-bottom:5px}
+.ctl-val{color:var(--ch1); font-weight:600}
+input[type=range]{width:100%; -webkit-appearance:none; appearance:none; height:3px; border-radius:2px; background:#22344e; outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--tx); border:2px solid var(--ink); cursor:pointer; box-shadow:0 0 0 1px var(--rule)}
+input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--tx); border:2px solid var(--ink); cursor:pointer}
+input[type=range]:focus-visible{box-shadow:0 0 0 3px #5ad2ff44}
+.btn{font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--tx);
+  background:#152234; border:1px solid var(--rule); border-radius:6px; padding:7px 12px; cursor:pointer; transition:.12s}
+.btn:hover{background:#1c2d45; border-color:#33506f}
+.btn.on{background:#0f2c3c; border-color:var(--ch1); color:var(--ch1)}
+.btn:focus-visible{outline:2px solid var(--ch1); outline-offset:2px}
+.btnrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
+/* readouts */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px; background:var(--rule2);
+  border:1px solid var(--rule2); border-radius:9px; overflow:hidden; margin-top:12px}
+.stat{background:#0c1421; padding:9px 12px}
+.sk{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--dim)}
+.sv{font-family:var(--mono); font-size:16px; font-weight:500; margin-top:2px; color:var(--tx); font-variant-numeric:tabular-nums}
+
+/* notice */
+.notice{border-left:2px solid var(--ch2); background:linear-gradient(90deg,#1a1608,transparent 70%); padding:12px 16px; margin:22px 0 0; border-radius:0 8px 8px 0; max-width:70ch}
+.notice h5{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ch2); margin:0 0 6px}
+.notice p{margin:0 0 8px; color:#c3cfdf; font-size:14.5px}
+.notice p:last-child{margin-bottom:0}
+.formula{font-family:var(--mono); font-size:15px; color:var(--ch4); background:#0a1a15; border:1px solid #1c3b30; border-radius:7px; padding:10px 14px; display:inline-block; margin:10px 0}
+
+/* pager */
+.pager{display:flex; justify-content:space-between; gap:12px; margin-top:38px; padding-top:20px; border-top:1px solid var(--rule2)}
+.pg{font-family:var(--mono); font-size:11.5px; color:var(--mut); background:none; border:1px solid var(--rule2); border-radius:7px; padding:10px 14px; cursor:pointer; text-align:left; max-width:46%}
+.pg:hover{border-color:var(--ch1); color:var(--tx)}
+.pg u{display:block; text-decoration:none; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim)}
+.pg:disabled{opacity:.28; cursor:default}
+#lesson{animation:in .28s ease both}
+@keyframes in{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+.tag{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:3px 7px; border-radius:4px; border:1px solid var(--rule); color:var(--mut)}
+.warn{color:var(--fault); border-color:#5c2020; background:#25090b}
+.ok{color:var(--ch4); border-color:#1c3b30; background:#0a1a15}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+#burger{display:none}
+@media(max-width:860px){
+  #app{grid-template-columns:1fr}
+  #rail{position:fixed; z-index:30; width:250px; left:-260px; transition:left .2s; box-shadow:0 0 40px #000}
+  #rail.open{left:0}
+  #burger{display:block; position:fixed; z-index:31; top:10px; right:12px}
+  #main{padding:56px 18px 70px}
+  .two{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<button id="burger" class="btn">Lessons</button>
+<div id="app">
+  <aside id="rail">
+    <div class="brand">
+      <h1>Bench</h1>
+      <p>22 things a robot cares about</p>
+    </div>
+    <nav id="nav"></nav>
+    <div class="legend">
+      <h4>Channel colours — same everywhere</h4>
+      <div><i style="background:var(--ch1)"></i>position / angle</div>
+      <div><i style="background:var(--ch2)"></i>velocity / rate</div>
+      <div><i style="background:var(--ch3)"></i>acceleration / force</div>
+      <div><i style="background:var(--ch4)"></i>jerk / torque</div>
+      <div><i style="background:var(--ref);opacity:.7"></i>target (dashed)</div>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="lesson"></div>
+    <div class="pager">
+      <button class="pg" id="prev"></button>
+      <button class="pg" id="next" style="text-align:right"></button>
+    </div>
+  </main>
+</div>
+<script>
+/* ============ core ============ */
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    r=Math.min(r,w/2,h/2); this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r); this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath(); return this;};
+}
+const el=(t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const TAU=Math.PI*2;
+const CSSV=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let C={};
+const initColors=()=>{C={ch1:CSSV('--ch1'),ch2:CSSV('--ch2'),ch3:CSSV('--ch3'),ch4:CSSV('--ch4'),
+  ref:CSSV('--ref'),fault:CSSV('--fault'),frame:CSSV('--frame'),mut:CSSV('--mut'),dim:CSSV('--dim'),
+  tx:CSSV('--tx'),rule:CSSV('--rule'),rule2:CSSV('--rule2'),panel:CSSV('--panel2')};};
+const MONO=n=>n+'px "IBM Plex Mono",monospace';
+const nf=(v,d=2)=>(Math.abs(v)<1e-12?0:v).toFixed(d);
+
+function makeCanvas(host,h){
+  const wrap=el('div','cvwrap'), c=document.createElement('canvas');
+  wrap.appendChild(c); host.appendChild(wrap);
+  const ctx=c.getContext('2d'); const o={c,ctx,W:600,H:h};
+  const fit=()=>{const w=Math.max(240,wrap.clientWidth||600);
+    const hh=typeof h==='function'?h(w):h;
+    const d=Math.min(2,window.devicePixelRatio||1);
+    c.width=w*d; c.height=hh*d; c.style.width=w+'px'; c.style.height=hh+'px';
+    ctx.setTransform(d,0,0,d,0,0); o.W=w; o.H=hh;};
+  new ResizeObserver(fit).observe(wrap); fit();
+  return o;
+}
+
+/* time-series / xy chart */
+class Chart{
+  constructor(host,o){
+    this.o=Object.assign({h:150,xr:[0,10],yr:null,xl:'',yl:'',title:'',zero:true,legend:true,dashRef:true},o);
+    if(this.o.title){const t=el('div','cap',this.o.title); host.appendChild(t);}
+    this.cv=makeCanvas(host,this.o.h);
+    this.s=(o.series||[]).map(s=>Object.assign({pts:[]},s));
+  }
+  clear(){this.s.forEach(s=>s.pts.length=0);}
+  push(t,v){this.s.forEach((s,i)=>{if(v[i]!=null&&isFinite(v[i]))s.pts.push([t,v[i]]);});}
+  setData(i,pts){this.s[i].pts=pts;}
+  trim(x0){this.s.forEach(s=>{while(s.pts.length>1&&s.pts[0][0]<x0)s.pts.shift();});}
+  window(t,span){this.o.xr=[t-span,t]; this.trim(t-span-.2);}
+  draw(){
+    const {ctx,W,H}=this.cv, o=this.o; ctx.clearRect(0,0,W,H);
+    const L=46,R=12,T=10,B=20, pw=W-L-R, ph=H-T-B;
+    let y0,y1;
+    if(o.yr){y0=o.yr[0];y1=o.yr[1];}
+    else{y0=1e9;y1=-1e9;
+      this.s.forEach(s=>s.pts.forEach(p=>{if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1];}));
+      if(y0>y1){y0=-1;y1=1;}
+      const m=(y1-y0)*0.18||Math.max(.5,Math.abs(y1)*.2); y0-=m; y1+=m;
+      if(o.symmetric){const a=Math.max(Math.abs(y0),Math.abs(y1)); y0=-a;y1=a;}}
+    const [x0,x1]=o.xr;
+    const X=x=>L+(x-x0)/((x1-x0)||1)*pw, Y=y=>T+(y1-y)/((y1-y0)||1)*ph;
+    ctx.save(); ctx.font=MONO(9.5); ctx.textBaseline='middle';
+    // graticule
+    ctx.strokeStyle=C.rule2; ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const yy=y0+(y1-y0)*i/4, py=Math.round(Y(yy))+.5;
+      ctx.beginPath(); ctx.moveTo(L,py); ctx.lineTo(W-R,py); ctx.stroke();
+      ctx.fillStyle=C.dim; ctx.textAlign='right'; ctx.fillText(nf(yy,Math.abs(y1-y0)>20?0:Math.abs(y1-y0)>2?1:2),L-6,py);}
+    for(let i=0;i<=5;i++){const px=Math.round(L+pw*i/5)+.5;
+      ctx.beginPath(); ctx.moveTo(px,T); ctx.lineTo(px,T+ph); ctx.stroke();}
+    if(o.zero&&y0<0&&y1>0){ctx.strokeStyle=C.rule; ctx.beginPath(); ctx.moveTo(L,Y(0)); ctx.lineTo(W-R,Y(0)); ctx.stroke();}
+    ctx.fillStyle=C.dim; ctx.textAlign='center'; if(o.xl)ctx.fillText(o.xl,L+pw/2,H-8);
+    // series
+    ctx.save(); ctx.beginPath(); ctx.rect(L,T-2,pw,ph+4); ctx.clip();
+    this.s.forEach(s=>{
+      if(s.pts.length<2)return;
+      ctx.strokeStyle=s.color; ctx.lineWidth=s.w||1.8; ctx.setLineDash(s.dash||[]);
+      ctx.lineJoin='round'; ctx.beginPath();
+      s.pts.forEach((p,i)=>{const px=X(p[0]),py=Y(p[1]); i?ctx.lineTo(px,py):ctx.moveTo(px,py);});
+      ctx.stroke(); ctx.setLineDash([]);
+      if(s.head&&s.pts.length){const p=s.pts[s.pts.length-1];
+        ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),2.6,0,TAU); ctx.fill();}
+    });
+    ctx.restore();
+    // legend
+    if(o.legend){let lx=L+6;
+      ctx.textAlign='left'; ctx.font=MONO(9.5);
+      this.s.forEach(s=>{if(!s.name)return;
+        ctx.fillStyle=s.color; ctx.fillRect(lx,T+5,10,2); lx+=14;
+        ctx.fillStyle=C.mut; ctx.fillText(s.name,lx,T+6); lx+=ctx.measureText(s.name).width+14;});}
+    ctx.restore();
+  }
+}
+
+/* controls */
+function controls(host){const r=el('div','ctrls'); host.appendChild(r); return r;}
+function slider(row,o){
+  const w=el('div','ctl'), lab=el('div','ctl-lab'), v=el('span','ctl-val');
+  lab.appendChild(el('span',null,o.label)); lab.appendChild(v);
+  const i=document.createElement('input'); i.type='range';
+  i.min=o.min; i.max=o.max; i.step=o.step==null?0.01:o.step; i.value=o.value;
+  const upd=()=>{v.textContent=(o.fmt?o.fmt(+i.value):nf(+i.value,o.dec==null?2:o.dec))+(o.unit?' '+o.unit:'');};
+  i.addEventListener('input',()=>{upd(); o.on&&o.on(+i.value);});
+  w.append(lab,i); row.appendChild(w); upd();
+  return {get v(){return +i.value;}, set v(x){i.value=x; upd(); o.on&&o.on(+i.value);}, el:i, upd};
+}
+function btnrow(host){const r=el('div','btnrow'); host.appendChild(r); return r;}
+function button(row,label,on){const b=el('button','btn',label); b.onclick=()=>on(b); row.appendChild(b); return b;}
+function toggle(row,label,val,on){const b=el('button','btn'+(val?' on':''),label);
+  let s=val; b.onclick=()=>{s=!s; b.classList.toggle('on',s); on(s);}; row.appendChild(b);
+  return {get v(){return s;}, set v(x){s=x;b.classList.toggle('on',s);}, el:b};}
+function stats(host){
+  const g=el('div','stats'); host.appendChild(g); const m={};
+  return {add(k,label,color){const c=el('div','stat','<div class="sk">'+label+'</div><div class="sv"></div>');
+      const sv=c.querySelector('.sv'); if(color)sv.style.color=color; g.appendChild(c); m[k]=sv; return this;},
+    set(k,v,color){if(m[k]){m[k].textContent=v; if(color)m[k].style.color=color;}}};
+}
+function scope(host,label,eq){
+  const s=el('div','scope');
+  const bar=el('div','scope-bar','<i class="dot"></i><span>'+label+'</span>'+(eq?'<b class="eq">'+eq+'</b>':''));
+  const body=el('div','scope-body'); s.append(bar,body); host.appendChild(s); return body;
+}
+function onDrag(cv,cb,end){
+  const c=cv.c; let down=false;
+  const pos=e=>{const r=c.getBoundingClientRect(); const t=e.touches?e.touches[0]:e;
+    return [t.clientX-r.left,t.clientY-r.top];};
+  c.addEventListener('pointerdown',e=>{down=true; c.setPointerCapture(e.pointerId); cb(pos(e),true); e.preventDefault();});
+  c.addEventListener('pointermove',e=>{if(down)cb(pos(e),false);});
+  c.addEventListener('pointerup',()=>{down=false; end&&end();});
+  c.addEventListener('pointercancel',()=>{down=false; end&&end();});
+  return {get down(){return down;}};
+}
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1; if(['arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=0;});
+
+/* drawing helpers */
+function arrow(ctx,x0,y0,x1,y1,color,w=2,headSize=8){
+  const dx=x1-x0,dy=y1-y0,L=Math.hypot(dx,dy); if(L<0.5)return;
+  const ux=dx/L,uy=dy/L, hs=Math.min(headSize,L*0.5);
+  ctx.strokeStyle=color; ctx.lineWidth=w; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1-ux*hs*0.7,y1-uy*hs*0.7); ctx.stroke();
+  ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x1,y1);
+  ctx.lineTo(x1-ux*hs-uy*hs*0.45, y1-uy*hs+ux*hs*0.45);
+  ctx.lineTo(x1-ux*hs+uy*hs*0.45, y1-uy*hs-ux*hs*0.45);
+  ctx.closePath(); ctx.fill(); ctx.lineCap='butt';
+}
+function label(ctx,x,y,t,color,size=10,align='center'){
+  ctx.font=MONO(size); ctx.fillStyle=color; ctx.textAlign=align; ctx.textBaseline='middle'; ctx.fillText(t,x,y);
+}
+function track(ctx,W,y,padL,padR){
+  ctx.strokeStyle=C.rule2; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,y+.5); ctx.lineTo(W-padR,y+.5); ctx.stroke();
+  ctx.fillStyle=C.rule2;
+  for(let x=padL;x<=W-padR;x+=18)ctx.fillRect(x,y+2,1,4);
+}
+function box(ctx,cx,cy,w,h,fill,stroke){
+  ctx.fillStyle=fill; ctx.strokeStyle=stroke||'transparent'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.roundRect(cx-w/2,cy-h/2,w,h,4); ctx.fill(); if(stroke)ctx.stroke();
+}
+const gauss=()=>{let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);};
+
+/* 3x3 matrix + 3D */
+const M={
+  rx:a=>[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]],
+  ry:a=>[[Math.cos(a),0,Math.sin(a)],[0,1,0],[-Math.sin(a),0,Math.cos(a)]],
+  rz:a=>[[Math.cos(a),-Math.sin(a),0],[Math.sin(a),Math.cos(a),0],[0,0,1]],
+  I:[[1,0,0],[0,1,0],[0,0,1]],
+  mul:(A,B)=>[0,1,2].map(i=>[0,1,2].map(j=>A[i][0]*B[0][j]+A[i][1]*B[1][j]+A[i][2]*B[2][j])),
+  ap:(A,v)=>[A[0][0]*v[0]+A[0][1]*v[1]+A[0][2]*v[2],
+             A[1][0]*v[0]+A[1][1]*v[1]+A[1][2]*v[2],
+             A[2][0]*v[0]+A[2][1]*v[1]+A[2][2]*v[2]],
+  axang:(ax,t)=>{const n=Math.hypot(...ax)||1,[x,y,z]=ax.map(k=>k/n),c=Math.cos(t),s=Math.sin(t),C1=1-c;
+    return [[c+x*x*C1,x*y*C1-z*s,x*z*C1+y*s],[y*x*C1+z*s,c+y*y*C1,y*z*C1-x*s],[z*x*C1-y*s,z*y*C1+x*s,c+z*z*C1]];}
+};
+function makeView(cv,scale,az,ele){
+  const v={az:az==null?-0.62:az, el:ele==null?0.38:ele, scale:scale||70, cx:0, cy:0};
+  v.mat=()=>M.mul(M.rx(v.el),M.rz(v.az));
+  v.p=(p,m)=>{const q=M.ap(m||v.mat(),p); const f=9, s=f/(f+q[1]+2.2);
+    return [v.cx+q[0]*v.scale*s, v.cy-q[2]*v.scale*s, q[1]];};
+  let last=null;
+  onDrag(cv,(pt,start)=>{if(start){last=pt;return;} v.az-=(pt[0]-last[0])*0.01; v.el=clamp(v.el+(pt[1]-last[1])*0.01,-1.4,1.4); last=pt;},()=>last=null);
+  return v;
+}
+function poly3(ctx,pts,view,m,color,close,w){
+  ctx.strokeStyle=color; ctx.lineWidth=w||1.5; ctx.beginPath();
+  pts.forEach((p,i)=>{const s=view.p(p,m); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]);});
+  if(close)ctx.closePath(); ctx.stroke();
+}
+function circle3(n,r,plane){const pts=[];
+  for(let i=0;i<=n;i++){const a=i/n*TAU, c=Math.cos(a)*r, s=Math.sin(a)*r;
+    pts.push(plane==='xy'?[c,s,0]:plane==='xz'?[c,0,s]:[0,c,s]);}
+  return pts;}
+function axes3(ctx,view,m,len,names,alpha){
+  const A=[[[len,0,0],C.ch3,names?names[0]:'x'],[[0,len,0],C.ch4,names?names[1]:'y'],[[0,0,len],C.ch1,names?names[2]:'z']];
+  ctx.globalAlpha=alpha==null?1:alpha;
+  const o=view.p([0,0,0],m);
+  A.forEach(([v,col,nm])=>{const s=view.p(v,m); arrow(ctx,o[0],o[1],s[0],s[1],col,2,8); label(ctx,s[0]+7,s[1]-7,nm,col,10);});
+  ctx.globalAlpha=1;
+}
+function cube3(ctx,view,m,sx,sy,sz,color){
+  const P=[[-sx,-sy,-sz],[sx,-sy,-sz],[sx,sy,-sz],[-sx,sy,-sz],[-sx,-sy,sz],[sx,-sy,sz],[sx,sy,sz],[-sx,sy,sz]];
+  const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  ctx.strokeStyle=color; ctx.lineWidth=1.4;
+  E.forEach(([a,b])=>{const p=view.p(P[a],m), q=view.p(P[b],m);
+    ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();});
+  // shade front face marker
+  const f=[P[1],P[2],P[6],P[5]].map(p=>view.p(p,m));
+  ctx.fillStyle=color+'22'; ctx.beginPath(); f.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); ctx.fill();
+}
+
+/* lesson registry */
+const LESSONS=[];
+const L=(group,title,eq,brief,notice,build)=>LESSONS.push({group,title,eq,brief,notice,build});
+</script>
+<script>
+/* ================= MOTION ================= */
+
+L('Motion','Position, velocity, acceleration','v = dx/dt   ·   a = dv/dt',
+`Grab the puck and shove it around. You control <b>position</b> only — but the two traces below are not extra
+information, they're the same motion differentiated once and twice. Velocity is the slope of position.
+Acceleration is the slope of velocity. When you hold still all three are zero; when you move at constant speed,
+<code>v</code> is flat and <code>a</code> is zero; <b>a is non-zero only while you're changing your mind</b>.`,
+`<p>Watch the peaks line up: <b>a</b> peaks <em>before</em> <b>v</b> peaks, and <b>v</b> peaks where <b>x</b> is
+steepest. Each trace leads the one below it by a quarter cycle.</p>
+<p>This is the whole chain a robot lives in. Your encoder measures the top trace. Your IMU measures the bottom
+one. Everything in between is your problem.</p>`,
+host=>{
+  const b=scope(host,'drag the puck','x  →  v  →  a');
+  const cv=makeCanvas(b,110);
+  const c1=new Chart(b,{h:104,title:'x · position (m)',yr:[-1.15,1.15],series:[{name:'x',color:C.ch1,head:1}]});
+  const c2=new Chart(b,{h:104,title:'v · velocity (m/s)',symmetric:1,series:[{name:'v',color:C.ch2,head:1}]});
+  const c3=new Chart(b,{h:104,title:'a · acceleration (m/s²)',symmetric:1,series:[{name:'a',color:C.ch3,head:1}]});
+  const row=controls(host); const br=btnrow(row);
+  let auto=true;
+  const tg=toggle(br,'Auto sweep',true,v=>auto=v);
+  const freq=slider(row,{label:'auto sweep rate',min:.1,max:.8,step:.01,value:.28,unit:'Hz',dec:2});
+  const st=stats(host); st.add('x','position',C.ch1).add('v','velocity',C.ch2).add('a','acceleration',C.ch3);
+  let t=0,x=0,tgt=0,v=0,a=0,px=0,pv=0;
+  const drag=onDrag(cv,pt=>{auto=false; tg.v=false; tgt=clamp((pt[0]-cv.W/2)/(cv.W/2-40),-1,1);});
+  return{
+    step(dt){ t+=dt;
+      if(auto)tgt=Math.sin(t*TAU*freq.v);
+      x+=(tgt-x)*Math.min(1,dt*14);
+      const vr=(x-px)/dt; px=x; v+=(vr-v)*0.3;
+      const ar=(v-pv)/dt; pv=v; a+=(ar-a)*0.15;
+      c1.push(t,[x]); c2.push(t,[v]); c3.push(t,[a]);
+      [c1,c2,c3].forEach(c=>c.window(t,7));
+      st.set('x',nf(x,2)+' m'); st.set('v',nf(v,2)+' m/s'); st.set('a',nf(a,2)+' m/s²');
+    },
+    draw(){ const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const y=H*0.56, S=W/2-40, cx=W/2+x*S;
+      track(ctx,W,y+18,20,20);
+      label(ctx,W/2,H-8,'\u2190  \u22121 m            0            +1 m  \u2192',C.dim,9.5);
+      arrow(ctx,cx,y,cx+v*70,y,C.ch2,2.5,9);
+      arrow(ctx,cx,y-22,cx+a*40,y-22,C.ch3,2.5,9);
+      label(ctx,cx,y-40,'a',C.ch3,10); label(ctx,cx+v*70+ (v>0?12:-12),y,'v',C.ch2,10);
+      box(ctx,cx,y+2,34,30,'#12324a',C.ch1);
+      ctx.fillStyle=C.ch1; ctx.fillRect(cx-1,y-11,2,26);
+      [c1,c2,c3].forEach(c=>c.draw());
+    }};
+});
+
+L('Motion','Integrate twice and the error explodes','drift = ½ · bias · t²',
+`An IMU does not measure position. It measures <b>acceleration</b>, and you have to integrate twice to get back to
+position. Integration is a running sum — so a bias of even <code>0.01 m/s²</code> never averages out, it accumulates
+into velocity linearly and into position <em>quadratically</em>. The dashed line is the truth. The solid line is what
+your dead-reckoned estimate believes.`,
+`<p>Set noise to zero and leave a small bias: the position error grows as a parabola, not a line. Ten times longer
+means <b>a hundred times</b> the drift.</p>
+<p>Noise is the friendlier enemy — zero-mean noise integrates into a random walk (grows like √t). Bias is the
+killer. This is why you never navigate on an IMU alone: you fuse it with something that measures position
+directly (vision, GPS, joint encoders) to pin down the low frequencies.</p>`,
+host=>{
+  const b=scope(host,'strapdown dead reckoning','a → ∫ → v → ∫ → x');
+  const ca=new Chart(b,{h:96,title:'a · what the IMU reports vs truth',symmetric:1,
+    series:[{name:'measured',color:C.ch3,w:1.2},{name:'true',color:C.ref,dash:[4,4]}]});
+  const cvl=new Chart(b,{h:96,title:'v · integrated once',
+    series:[{name:'estimate',color:C.ch2,head:1},{name:'true',color:C.ref,dash:[4,4]}]});
+  const cp=new Chart(b,{h:110,title:'x · integrated twice — this is your drift',
+    series:[{name:'estimate',color:C.ch1,head:1},{name:'true',color:C.ref,dash:[4,4]}]});
+  const row=controls(host);
+  const bias=slider(row,{label:'accelerometer bias',min:-.05,max:.05,step:.001,value:.012,unit:'m/s²',dec:3});
+  const noise=slider(row,{label:'noise σ',min:0,max:.4,step:.005,value:.06,unit:'m/s²',dec:3});
+  const br=btnrow(row);
+  let moving=false, speed=1;
+  toggle(br,'Robot is moving',false,v=>moving=v);
+  const sp=button(br,'Speed ×1',bt=>{speed=speed===1?10:1; bt.textContent='Speed ×'+speed; bt.classList.toggle('on',speed>1);});
+  const st=stats(host);
+  st.add('t','elapsed').add('dp','position error',C.fault).add('pred','½·bias·t² predicts',C.mut).add('dv','velocity error',C.ch2);
+  let t=0,vT=0,pT=0,vE=0,pE=0;
+  const reset=()=>{t=0;vT=0;pT=0;vE=0;pE=0;[ca,cvl,cp].forEach(c=>c.clear());};
+  button(br,'Reset',reset);
+  return{
+    step(dt){ const n=speed; const h=dt*1; 
+      for(let k=0;k<n;k++){
+        t+=h;
+        const aT=moving?0.6*Math.sin(t*1.4):0;
+        const aM=aT+bias.v+noise.v*gauss();
+        vT+=aT*h; pT+=vT*h; vE+=aM*h; pE+=vE*h;
+        if(k===n-1||n===1){ca.push(t,[aM,aT]); cvl.push(t,[vE,vT]); cp.push(t,[pE,pT]);}
+      }
+      [ca,cvl,cp].forEach(c=>c.window(t,Math.max(12,Math.min(60,t))));
+      st.set('t',nf(t,1)+' s'); st.set('dp',nf(pE-pT,2)+' m');
+      st.set('pred',nf(0.5*bias.v*t*t,2)+' m'); st.set('dv',nf(vE-vT,3)+' m/s');
+    },
+    draw(){[ca,cvl,cp].forEach(c=>c.draw());}};
+});
+
+L('Motion','Jerk — the rate of change of acceleration','j = da/dt',
+`Jerk is the third derivative: how fast the acceleration is changing. Hardware feels it. A step in acceleration means
+an <em>instant</em> change in force, which slams backlash, flexes the link, and rings the payload. The
+<b>minimum-jerk</b> profile <code>s = 10τ³ − 15τ⁴ + 6τ⁵</code> is the trajectory that moves the same distance in the
+same time while keeping the total squared jerk as small as possible — it starts and ends with zero velocity,
+zero acceleration <em>and</em> zero jerk.`,
+`<p>Switch to <b>bang-bang</b>: the jerk trace disappears off the top of the plot — those are impulses, infinite in
+theory. Watch the flexible payload trace ring like a bell after the move finishes.</p>
+<p>Min-jerk pays for it with a higher <em>peak</em> acceleration than a trapezoid of the same duration. That's the
+trade: smoothness costs you headroom. Time-optimal robots use trapezoids and stiff structures; robots carrying
+something wobbly (or a human) use min-jerk.</p>`,
+host=>{
+  const b=scope(host,'1 m point-to-point move','s = 10τ³ − 15τ⁴ + 6τ⁵');
+  const cv=makeCanvas(b,96);
+  const cP=new Chart(b,{h:88,title:'x · position (m)',yr:[-.08,1.15],series:[{name:'x',color:C.ch1},{name:'',color:C.ch1,w:0}]});
+  const cV=new Chart(b,{h:88,title:'v · velocity (m/s)',series:[{name:'v',color:C.ch2}]});
+  const cA=new Chart(b,{h:88,title:'a · acceleration (m/s²)',symmetric:1,series:[{name:'a',color:C.ch3}]});
+  const cJ=new Chart(b,{h:88,title:'j · jerk (m/s³) — fixed scale, spikes clip',symmetric:1,series:[{name:'j',color:C.ch4}]});
+  const cW=new Chart(b,{h:88,title:'payload deflection (mm) — flexible tip on the end of the arm',symmetric:1,
+    series:[{name:'wobble',color:C.fault,w:1.4}]});
+  const row=controls(host); const br=btnrow(row);
+  let kind='min';
+  const bts={};
+  [['min','Minimum jerk'],['trap','Trapezoid'],['bang','Bang-bang']].forEach(([k,n])=>{
+    bts[k]=button(br,n,()=>{kind=k; Object.entries(bts).forEach(([kk,bb])=>bb.classList.toggle('on',kk===k)); rebuild();});});
+  bts.min.classList.add('on');
+  const T=slider(row,{label:'move duration',min:.4,max:3,step:.05,value:1.2,unit:'s',dec:2,on:()=>rebuild()});
+  const st=stats(host);
+  st.add('pa','peak |a|',C.ch3).add('pj','peak |j|',C.ch4).add('res','ringing after move',C.fault);
+  const prof={
+    min:t=>10*t**3-15*t**4+6*t**5,
+    trap:t=>{const f=1/3; if(t<f)return .5*t*t/(f*(1-f)); if(t<1-f)return (t-f/2)/(1-f); const u=1-t; return 1-.5*u*u/(f*(1-f));},
+    bang:t=>t<.5?2*t*t:1-2*(1-t)*(1-t)};
+  let A=null;
+  function rebuild(){
+    const Tt=T.v, total=Tt+1.6, N=1200, dt=total/N;
+    const p=[],v=[],a=[],j=[],w=[],ts=[];
+    const wn=TAU*3.2, ze=.02; let tip=0,tv=0;
+    for(let i=0;i<=N;i++){const tt=i*dt, tau=clamp(tt/Tt,0,1); ts.push(tt); p.push(prof[kind](tau));}
+    for(let i=0;i<=N;i++){const i0=Math.max(0,i-1),i1=Math.min(N,i+1); v.push((p[i1]-p[i0])/((i1-i0)*dt));}
+    for(let i=0;i<=N;i++){const i0=Math.max(0,i-1),i1=Math.min(N,i+1); a.push((v[i1]-v[i0])/((i1-i0)*dt));}
+    for(let i=0;i<=N;i++){const i0=Math.max(0,i-1),i1=Math.min(N,i+1); j.push((a[i1]-a[i0])/((i1-i0)*dt));}
+    for(let i=0;i<=N;i++){const ac=-wn*wn*(tip-p[i])-2*ze*wn*(tv-v[i]); tv+=ac*dt; tip+=tv*dt; w.push((tip-p[i])*1000);}
+    const pk=arr=>Math.max(...arr.map(Math.abs));
+    let res=0; for(let i=0;i<=N;i++)if(ts[i]>Tt+.15)res=Math.max(res,Math.abs(w[i]));
+    A={ts,p,v,a,j,w,T:Tt,total,pa:pk(a),pj:pk(j),res};
+    const jr=100/(Tt*Tt*Tt);
+    const mk=(arr)=>arr.map((y,i)=>[ts[i],y]);
+    cP.o.xr=cV.o.xr=cA.o.xr=cJ.o.xr=cW.o.xr=[0,total];
+    cP.setData(0,mk(p)); cV.setData(0,mk(v)); cA.setData(0,mk(a));
+    cJ.o.yr=[-jr,jr]; cJ.setData(0,mk(j)); cW.setData(0,mk(w));
+    cP.setData(1,[[Tt,-.08],[Tt,1.15]]); cP.s[1].w=1; cP.s[1].color=C.rule; cP.s[1].dash=[3,3];
+    st.set('pa',nf(A.pa,2)+' m/s²'); st.set('pj',kind==='min'?nf(A.pj,1)+' m/s³':'\u2192 \u221e (impulse)');
+    st.set('res',nf(A.res,2)+' mm');
+  }
+  rebuild();
+  let t=0;
+  return{
+    step(dt){t=(t+dt)%(A.total+0.4);},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const i=clamp(Math.round(t/A.total*(A.ts.length-1)),0,A.ts.length-1);
+      const y=H*0.55, x0=60, x1=W-60, X=s=>x0+s*(x1-x0);
+      track(ctx,W,y+20,40,40);
+      ctx.strokeStyle=C.rule; ctx.setLineDash([3,3]);
+      [0,1].forEach(s=>{ctx.beginPath(); ctx.moveTo(X(s),y-30); ctx.lineTo(X(s),y+22); ctx.stroke();});
+      ctx.setLineDash([]);
+      label(ctx,X(0),y+34,'start',C.dim,9); label(ctx,X(1),y+34,'goal',C.dim,9);
+      const bx=X(A.p[i]), tipx=bx+A.w[i]/1000*(x1-x0);
+      ctx.strokeStyle=C.fault; ctx.lineWidth=2; ctx.beginPath();
+      ctx.moveTo(bx,y); ctx.quadraticCurveTo((bx+tipx)/2,y-26,tipx,y-34); ctx.stroke();
+      ctx.fillStyle=C.fault; ctx.beginPath(); ctx.arc(tipx,y-34,7,0,TAU); ctx.fill();
+      box(ctx,bx,y+4,30,26,'#12324a',C.ch1);
+      label(ctx,W-6,14,(t<A.T?'MOVING':'SETTLING'),t<A.T?C.ch2:C.fault,10,'right');
+      [cP,cV,cA,cJ,cW].forEach(c=>c.draw());
+      [cP,cV,cA,cJ,cW].forEach(c=>{const cc=c.cv, L=46,R=12,pw=cc.W-L-R;
+        cc.ctx.strokeStyle='#ffffff33'; cc.ctx.beginPath();
+        const px=L+A.ts[i]/A.total*pw; cc.ctx.moveTo(px,8); cc.ctx.lineTo(px,cc.H-20); cc.ctx.stroke();});
+    }};
+});
+
+/* ================= FORCE ================= */
+
+L('Force','F = ma','a = F / m',
+`Force does not set speed, it sets the <b>rate of change</b> of speed. Push a mass with a constant force and the
+velocity ramps forever while the position curves away as a parabola. Double the mass and you halve the
+acceleration for the same push — which is why the mass of the thing you're carrying matters more than its weight.`,
+`<p>Push at a constant 5 N and hold it. Velocity is a straight line and position is a parabola. Nothing here ever
+reaches "a steady speed for a given force" — that intuition comes from friction and drag, not from physics.</p>
+<p>The controller you write outputs force (or torque, or current). The robot answers in acceleration. Everything you
+actually want — a position — is two integrals away.</p>`,
+host=>{
+  const b=scope(host,'frictionless sled','F = m · a');
+  const cv=makeCanvas(b,120);
+  const c1=new Chart(b,{h:96,title:'a · acceleration (m/s²)',yr:[-.2,12],series:[{name:'a',color:C.ch3,head:1}]});
+  const c2=new Chart(b,{h:96,title:'v · velocity (m/s) — ramps linearly',series:[{name:'v',color:C.ch2,head:1}]});
+  const c3=new Chart(b,{h:96,title:'x · position (m) — curves quadratically',series:[{name:'x',color:C.ch1,head:1}]});
+  const row=controls(host);
+  const F=slider(row,{label:'applied force',min:-10,max:10,step:.1,value:3,unit:'N',dec:1});
+  const m=slider(row,{label:'mass',min:.2,max:20,step:.1,value:2,unit:'kg',dec:1});
+  const st=stats(host); st.add('a','acceleration',C.ch3).add('v','velocity',C.ch2).add('x','position',C.ch1);
+  let t=0,x=0,v=0;
+  button(btnrow(row),'Reset',()=>{t=0;x=0;v=0;[c1,c2,c3].forEach(c=>c.clear());});
+  return{
+    step(dt){t+=dt; const a=F.v/m.v; v+=a*dt; x+=v*dt;
+      if(Math.abs(x)>6){x=clamp(x,-6,6); v=0;}
+      c1.push(t,[a]); c2.push(t,[v]); c3.push(t,[x]);
+      [c1,c2,c3].forEach(c=>c.window(t,8));
+      st.set('a',nf(a,3)+' m/s²'); st.set('v',nf(v,2)+' m/s'); st.set('x',nf(x,2)+' m');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const y=H*.55, S=(W/2-60)/6, cx=W/2+x*S;
+      track(ctx,W,y+22,20,20);
+      const w=26+Math.sqrt(m.v)*9;
+      box(ctx,cx,y+4,w,34,'#12324a',C.ch1);
+      label(ctx,cx,y+4,nf(m.v,1)+' kg',C.ch1,10);
+      arrow(ctx,cx+(F.v>0?w/2:-w/2),y+4,cx+(F.v>0?w/2:-w/2)+F.v*11,y+4,C.ch3,3,10);
+      label(ctx,cx+F.v*11+(F.v>0?w/2+16:-w/2-16),y-14,nf(F.v,1)+' N',C.ch3,10);
+      [c1,c2,c3].forEach(c=>c.draw());}};
+});
+
+L('Force','Newton\u2019s first law — nothing stops it','ΣF = 0  ⇒  v = constant',
+`On Earth, things stop. That is not physics, that is friction quietly applying a force. Remove it — microgravity, a
+frictionless air bearing, a free-flying inspection drone — and the object keeps exactly the velocity you gave it,
+forever, until <em>you</em> apply an equal and opposite force to take it away again.`,
+`<p>Kick both sleds with the same impulse. The one on the floor stops. The one in orbit never does.</p>
+<p>Practical consequence: in microgravity, <b>stopping costs the same as starting</b>. Every trajectory you plan
+needs a braking phase you paid for in propellant or in reaction-wheel momentum. A ground robot gets its braking
+free from friction and can be sloppy about it.</p>`,
+host=>{
+  const b=scope(host,'same impulse, two environments','impulse = F·Δt = m·Δv');
+  const cv=makeCanvas(b,190);
+  const c=new Chart(b,{h:110,title:'v · velocity (m/s)',yr:[-.15,2.2],
+    series:[{name:'microgravity',color:C.ch4,head:1},{name:'floor (friction)',color:C.ch2,head:1}]});
+  const row=controls(host);
+  const mu=slider(row,{label:'floor friction',min:0,max:2,step:.02,value:.6,unit:'N/kg',dec:2});
+  const br=btnrow(row);
+  const st=stats(host); st.add('vs','microgravity speed',C.ch4).add('vf','floor speed',C.ch2).add('d','distance apart',C.mut);
+  let t=0,xs=0,vs=0,xf=0,vf=0,kick=0;
+  button(br,'Kick both  (1.5 N·s)',()=>{kick=1.5;});
+  button(br,'Reset',()=>{t=0;xs=xf=0;vs=vf=0;c.clear();});
+  return{
+    step(dt){t+=dt;
+      if(kick>0){const j=Math.min(kick,8*dt); vs+=j; vf+=j; kick-=j;}
+      if(vf>0)vf=Math.max(0,vf-mu.v*dt);
+      xs+=vs*dt; xf+=vf*dt;
+      if(xs>7){xs=0;} if(xf>7){xf=0;}
+      c.push(t,[vs,vf]); c.window(t,10);
+      st.set('vs',nf(vs,2)+' m/s'); st.set('vf',nf(vf,2)+' m/s'); st.set('d',nf(xs-xf,2)+' m');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const S=(W-90)/7.4;
+      [[H*.3,xs,C.ch4,'MICROGRAVITY — no friction'],[H*.76,xf,C.ch2,'FLOOR — friction '+nf(mu.v,2)+' N/kg']].forEach(([y,x,col,tx],k)=>{
+        ctx.strokeStyle=C.rule2; ctx.setLineDash(k?[]:[2,5]);
+        ctx.beginPath(); ctx.moveTo(40,y+22.5); ctx.lineTo(W-24,y+22.5); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx,40,y-32,tx,col,10,'left');
+        const cx=40+x*S;
+        box(ctx,cx,y+4,32,32,'#12324a',col);
+        if(k===1&&vf>0)arrow(ctx,cx+18,y+18,cx-6,y+18,C.fault,2,7);
+      });
+      c.draw();}};
+});
+
+L('Force','Work it out: 1.5 N on 27 kg','a = 1.5 / 27 = 0.0556 m/s²',
+`A small thruster or a gentle nudge from a manipulator: <b>1.5 newtons</b> acting on a <b>27 kg</b> free-floating
+module. That's about the weight of an apple pushing a large suitcase. The acceleration is tiny — but it never stops,
+and position grows with <code>t²</code>.`,
+`<p>Nothing happens for the first few seconds. After a minute the module has moved <b>100 metres</b> and is doing
+3.3 m/s — jogging pace, and 27 kg of it.</p>
+<p>This is the microgravity trap: forces you'd never notice on Earth become unrecoverable displacements if you
+leave them on. Ten seconds of unnoticed 1.5 N thrust is a 2.8 m error you now need propellant to undo.</p>`,
+host=>{
+  const b=scope(host,'free-floating module','x = ½ a t²');
+  const cv=makeCanvas(b,150);
+  const c=new Chart(b,{h:120,title:'x · displacement (m) — quadratic',
+    series:[{name:'x',color:C.ch1,head:1},{name:'v (m/s)',color:C.ch2,head:1}]});
+  const row=controls(host);
+  const F=slider(row,{label:'thrust',min:.1,max:5,step:.1,value:1.5,unit:'N',dec:1});
+  const m=slider(row,{label:'module mass',min:1,max:100,step:1,value:27,unit:'kg',dec:0});
+  const br=btnrow(row);
+  const st=stats(host);
+  st.add('a','acceleration',C.ch3).add('t','elapsed').add('v','speed',C.ch2).add('x','displacement',C.ch1);
+  let t=0,x=0,v=0,speed=10;
+  const sp=button(br,'Time ×10',bt=>{speed=speed===1?10:1; bt.textContent='Time ×'+speed; bt.classList.toggle('on',speed>1);});
+  sp.classList.add('on');
+  button(br,'Reset',()=>{t=0;x=0;v=0;c.clear();});
+  const tbl=el('div','notice');
+  const upd=()=>{const a=F.v/m.v;
+    tbl.innerHTML='<h5>the arithmetic</h5><p><span class="formula">a = F/m = '+nf(F.v,1)+' N ÷ '+nf(m.v,0)+' kg = '+
+      nf(a,4)+' m/s²</span></p><p style="font-family:var(--mono);font-size:13px;line-height:2">'+
+      [1,10,60,300].map(T=>'t = '+String(T).padStart(3)+' s  \u2192  v = '+nf(a*T,3)+' m/s   ·   x = '+nf(.5*a*T*T,2)+' m').join('<br>')+
+      '</p><p>Ten times the time is a hundred times the distance.</p>';};
+  F.el.addEventListener('input',upd); m.el.addEventListener('input',upd); upd();
+  host.appendChild(tbl);
+  return{
+    step(dt){const a=F.v/m.v;
+      for(let k=0;k<speed;k++){t+=dt; v+=a*dt; x+=v*dt;}
+      c.push(t,[x,v]); c.window(t,Math.max(20,Math.min(120,t)));
+      st.set('a',nf(a,4)+' m/s²'); st.set('t',nf(t,1)+' s'); st.set('v',nf(v,3)+' m/s'); st.set('x',nf(x,2)+' m');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const y=H*.5, S=(W-140)/Math.max(20,x*1.15), cx=70+x*S;
+      ctx.strokeStyle=C.rule; ctx.setLineDash([2,6]);
+      ctx.beginPath(); ctx.moveTo(70,y-46); ctx.lineTo(70,y+46); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx,70,y+58,'start',C.dim,9);
+      ctx.strokeStyle=C.rule2; ctx.beginPath(); ctx.moveTo(70,y); ctx.lineTo(Math.min(cx,W-40),y); ctx.stroke();
+      const px=Math.min(cx,W-46);
+      box(ctx,px,y,40,40,'#12324a',C.ch1); label(ctx,px,y,nf(m.v,0)+'kg',C.ch1,9.5);
+      arrow(ctx,px-20-F.v*8,y,px-20,y,C.ch3,2.5,8);
+      label(ctx,px-24-F.v*8,y-16,nf(F.v,1)+' N',C.ch3,9.5,'right');
+      label(ctx,W-8,14,'\u0394x = '+nf(x,1)+' m',C.ch1,11,'right');
+      c.draw();}};
+});
+</script>
+<script>
+/* ================= ROTATION ================= */
+
+L('Rotation','Angular velocity and angular acceleration','ω = dθ/dt   ·   α = dω/dt',
+`Exactly the same derivative chain, but around an axis instead of along a line. <b>θ</b> is angle (rad),
+<b>ω</b> is angular velocity (rad/s), <b>α</b> is angular acceleration (rad/s²). Every intuition from the first
+lesson transfers — including that you can only ever <em>command</em> the bottom of the chain and have to integrate
+your way up to the thing you care about.</b>`,
+`<p>A point on the rim moves at <code>v = ω × r</code> — twice as far out, twice as fast, for the same ω. That's why
+the tool at the end of a long arm is the hard part: a modest joint speed becomes a scary tip speed.</p>
+<p>1 rad/s ≈ 57°/s ≈ 9.5 rpm. Getting fluent at converting between rad/s, deg/s and rpm saves you a lot of
+debugging, because your datasheet, your controller and your logs will each pick a different one.</p>`,
+host=>{
+  const b=scope(host,'spinning link','v = ω · r');
+  const cv=makeCanvas(b,190);
+  const c1=new Chart(b,{h:88,title:'θ · angle (rad, wrapped)',yr:[-3.3,3.3],series:[{name:'θ',color:C.ch1,head:1}]});
+  const c2=new Chart(b,{h:88,title:'ω · angular velocity (rad/s)',symmetric:1,series:[{name:'ω',color:C.ch2,head:1}]});
+  const c3=new Chart(b,{h:88,title:'α · angular acceleration (rad/s²)',symmetric:1,series:[{name:'α',color:C.ch3,head:1}]});
+  const row=controls(host);
+  const al=slider(row,{label:'commanded α',min:-4,max:4,step:.05,value:0,unit:'rad/s²',dec:2});
+  const rr=slider(row,{label:'radius of the marked point',min:.2,max:1,step:.02,value:.85,unit:'m',dec:2});
+  const st=stats(host);
+  st.add('th','angle',C.ch1).add('w','ω',C.ch2).add('deg','ω in °/s',C.ch2).add('rpm','ω in rpm',C.ch2).add('v','rim speed',C.ch4);
+  let t=0,th=0,w=0;
+  const br=btnrow(row);
+  button(br,'Stop',()=>{w=0;al.v=0;});
+  button(br,'Spin up',()=>{al.v=1.2;});
+  return{
+    step(dt){t+=dt; w+=al.v*dt; w=clamp(w,-14,14); th+=w*dt; th=((th+Math.PI)%TAU+TAU)%TAU-Math.PI;
+      c1.push(t,[th]); c2.push(t,[w]); c3.push(t,[al.v]);
+      [c1,c2,c3].forEach(c=>c.window(t,8));
+      st.set('th',nf(th,2)+' rad'); st.set('w',nf(w,2)); st.set('deg',nf(w*180/Math.PI,0)+' °/s');
+      st.set('rpm',nf(w*60/TAU,1)); st.set('v',nf(Math.abs(w)*rr.v,2)+' m/s');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const cx=W/2, cy=H/2, R=Math.min(H*.42,90);
+      ctx.strokeStyle=C.rule2; ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.stroke();
+      ctx.strokeStyle=C.rule; ctx.setLineDash([2,4]); ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+R,cy); ctx.stroke(); ctx.setLineDash([]);
+      // arc showing theta
+      ctx.strokeStyle=C.ch1; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,R*.36,0,-th,th>0); ctx.stroke();
+      const px=cx+Math.cos(-th)*R*rr.v, py=cy+Math.sin(-th)*R*rr.v;
+      ctx.strokeStyle=C.ch1; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(-th)*R,cy+Math.sin(-th)*R); ctx.stroke();
+      ctx.fillStyle=C.tx; ctx.beginPath(); ctx.arc(cx,cy,5,0,TAU); ctx.fill();
+      ctx.fillStyle=C.ch4; ctx.beginPath(); ctx.arc(px,py,6,0,TAU); ctx.fill();
+      const tx=-Math.sin(-th)*w*rr.v*26, ty=Math.cos(-th)*w*rr.v*26;
+      arrow(ctx,px,py,px-tx,py-ty,C.ch2,2.5,8);
+      label(ctx,cx,cy+R+20,'θ = '+nf(th,2)+' rad   ω = '+nf(w,2)+' rad/s',C.mut,10);
+      label(ctx,px+16,py-14,'v = '+nf(Math.abs(w)*rr.v,2),C.ch2,10,'left');
+      [c1,c2,c3].forEach(c=>c.draw());}};
+});
+
+L('Rotation','Torque — force with a lever arm','τ = r · F · sin φ',
+`Torque is not force. It's force <em>times</em> the perpendicular distance from the axis. Drag the arrow to move
+where the force is applied and which way it points. Push straight at the pivot and you get nothing, no matter how
+hard you push — only the component perpendicular to the arm does any turning.`,
+`<p>Slide the application point in toward the pivot and the torque falls off linearly. This is the whole reason
+robot arms have gearboxes: motors make speed cheaply and torque expensively, so you trade one for the other.</p>
+<p>Same idea in reverse: a payload held at arm's length loads the shoulder joint with <code>m·g·r</code>. Fold the
+arm in and the same payload costs a fraction of the holding torque.</p>`,
+host=>{
+  const b=scope(host,'drag the arrowhead','τ = r × F');
+  const cv=makeCanvas(b,240);
+  const row=controls(host);
+  const st=stats(host);
+  st.add('r','lever arm r').add('F','force |F|',C.ch3).add('phi','angle φ').add('perp','F sin φ',C.ch2).add('tau','torque τ',C.ch4);
+  let r=0.8, ang=Math.PI/2, F=6;
+  const fs=slider(row,{label:'force magnitude',min:.5,max:12,step:.1,value:6,unit:'N',dec:1,on:v=>F=v});
+  const rs=slider(row,{label:'application point r',min:.05,max:1,step:.01,value:.8,unit:'m',dec:2,on:v=>r=v});
+  const as=slider(row,{label:'force direction φ',min:0,max:180,step:1,value:90,unit:'°',dec:0,on:v=>ang=v*Math.PI/180});
+  let geo={};
+  onDrag(cv,pt=>{const dx=pt[0]-geo.px, dy=pt[1]-geo.py;
+    ang=Math.atan2(-dy,dx); if(ang<0)ang+=TAU; if(ang>Math.PI)ang=ang>4.71?0:Math.PI;
+    as.v=ang*180/Math.PI;});
+  return{
+    step(){const tau=r*F*Math.sin(ang);
+      st.set('r',nf(r,2)+' m'); st.set('F',nf(F,1)+' N'); st.set('phi',nf(ang*180/Math.PI,0)+'°');
+      st.set('perp',nf(F*Math.sin(ang),2)+' N'); st.set('tau',nf(tau,2)+' N·m',Math.abs(tau)<.3?C.dim:C.ch4);},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const ox=W*.22, oy=H*.62, S=Math.min(W*.5,220);
+      ctx.strokeStyle=C.rule2; ctx.lineWidth=10; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ox+S,oy); ctx.stroke(); ctx.lineCap='butt';
+      ctx.fillStyle=C.tx; ctx.beginPath(); ctx.arc(ox,oy,7,0,TAU); ctx.fill();
+      ctx.fillStyle=C.panel; ctx.beginPath(); ctx.arc(ox,oy,3,0,TAU); ctx.fill();
+      label(ctx,ox,oy+24,'pivot',C.dim,9);
+      const px=ox+r*S, py=oy; geo={px,py};
+      ctx.fillStyle=C.ch1; ctx.beginPath(); ctx.arc(px,py,5,0,TAU); ctx.fill();
+      // r bracket
+      ctx.strokeStyle=C.ch1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(ox,oy+34); ctx.lineTo(px,oy+34); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx,(ox+px)/2,oy+44,'r = '+nf(r,2)+' m',C.ch1,10);
+      const L=F*11, fx=px+Math.cos(ang)*L, fy=py-Math.sin(ang)*L;
+      // decomposition
+      const perp=F*Math.sin(ang), para=F*Math.cos(ang);
+      ctx.globalAlpha=.5;
+      arrow(ctx,px,py,px+para*11,py,C.dim,2,7);
+      ctx.globalAlpha=1;
+      arrow(ctx,px+para*11,py,px+para*11,py-perp*11,C.ch2,2,7);
+      ctx.strokeStyle=C.rule; ctx.setLineDash([2,3]);
+      ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(px+para*11,py-perp*11); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(px+para*11,py); ctx.stroke(); ctx.setLineDash([]);
+      arrow(ctx,px,py,fx,fy,C.ch3,3,11);
+      label(ctx,fx+10,fy-10,'F = '+nf(F,1)+' N',C.ch3,10,'left');
+      label(ctx,px+para*11+(perp>0?14:-14),py-perp*5.5,'F sinφ',C.ch2,9.5,'left');
+      // torque arc
+      const tau=r*F*Math.sin(ang);
+      if(Math.abs(tau)>.05){
+        ctx.strokeStyle=C.ch4; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(ox,oy,30,0,-clamp(tau/12,-2.4,2.4),tau>0); ctx.stroke();
+        label(ctx,ox+2,oy-46,'τ = '+nf(tau,2)+' N·m',C.ch4,11);}
+      label(ctx,W-8,16,'drag the red arrowhead',C.dim,9.5,'right');}};
+});
+
+L('Rotation','Moment of inertia — rotational mass','I = ∫ r² dm',
+`Mass resists acceleration. <b>Moment of inertia</b> resists angular acceleration — and unlike mass it is not one
+number, because it depends on <em>how far the mass sits from the axis you're spinning about</em>. Stretch the box
+along X and spinning about X barely changes, while spinning about Y and Z gets much harder. The r² is the important
+bit: mass at double the radius counts four times.`,
+`<p>Make the box long and thin. <code>Ixx</code> collapses; <code>Iyy</code> and <code>Izz</code> blow up. Same
+object, same mass, three completely different "rotational masses".</p>
+<p>The figure-skater pulling their arms in isn't gaining energy — they're shrinking <code>I</code>, and since angular
+momentum <code>L = Iω</code> is conserved, ω has to rise. Reaction wheels, spin stabilisation and why your drone
+pitches faster than it yaws are all this one idea.</p>`,
+host=>{
+  const b=scope(host,'solid cuboid · drag to orbit','I = m(b²+c²)/12');
+  const cv=makeCanvas(b,250);
+  const view=makeView(cv,54);
+  const row=controls(host);
+  const m=slider(row,{label:'mass',min:.5,max:20,step:.1,value:5,unit:'kg',dec:1});
+  const dx=slider(row,{label:'size along X',min:.1,max:1.6,step:.02,value:1.2,unit:'m',dec:2});
+  const dy=slider(row,{label:'size along Y',min:.1,max:1.6,step:.02,value:.5,unit:'m',dec:2});
+  const dz=slider(row,{label:'size along Z',min:.1,max:1.6,step:.02,value:.3,unit:'m',dec:2});
+  const st=stats(host);
+  st.add('ix','Ixx  (spin about X)',C.ch3).add('iy','Iyy  (spin about Y)',C.ch4).add('iz','Izz  (spin about Z)',C.ch1).add('rat','heaviest ÷ lightest',C.mut);
+  const I=()=>[m.v*(dy.v**2+dz.v**2)/12, m.v*(dx.v**2+dz.v**2)/12, m.v*(dx.v**2+dy.v**2)/12];
+  let t=0;
+  return{
+    step(dt){t+=dt; const [a,bb,c]=I();
+      st.set('ix',nf(a,4)+' kg·m²'); st.set('iy',nf(bb,4)+' kg·m²'); st.set('iz',nf(c,4)+' kg·m²');
+      st.set('rat',nf(Math.max(a,bb,c)/Math.min(a,bb,c),1)+' ×');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      view.cx=W*.32; view.cy=H*.52; const mm=view.mat();
+      const gs=1.6; ctx.strokeStyle=C.rule2; ctx.lineWidth=1;
+      for(let i=-2;i<=2;i++){poly3(ctx,[[-gs,i*gs/2,-.6],[gs,i*gs/2,-.6]],view,mm,C.rule2,false,1);
+        poly3(ctx,[[i*gs/2,-gs,-.6],[i*gs/2,gs,-.6]],view,mm,C.rule2,false,1);}
+      cube3(ctx,view,mm,dx.v/2,dy.v/2,dz.v/2,C.ch1);
+      axes3(ctx,view,mm,1.5,['X','Y','Z']);
+      // bars
+      const [a,bb,c]=I(), mx=Math.max(a,bb,c), bx=W*.62, bw=Math.min(W*.32,190);
+      label(ctx,bx,26,'moment of inertia about each axis',C.mut,10,'left');
+      [['Ixx',a,C.ch3],['Iyy',bb,C.ch4],['Izz',c,C.ch1]].forEach(([n,v,col],i)=>{
+        const y=52+i*38;
+        ctx.fillStyle=C.rule2; ctx.fillRect(bx,y,bw,16);
+        ctx.fillStyle=col; ctx.fillRect(bx,y,bw*v/mx,16);
+        label(ctx,bx,y-8,n,col,10,'left');
+        label(ctx,bx+bw,y-8,nf(v,4)+' kg·m²',C.mut,9.5,'right');});
+      label(ctx,bx,H-16,'r² means distance matters more than mass',C.dim,9.5,'left');}};
+});
+
+L('Rotation','τ = I α — the rotational F = ma','α = τ / I',
+`Same torque, same object, three different axes, three different angular accelerations — because <code>I</code>
+differs per axis. Watch the three ω traces separate under an identical applied torque. The axis with the smallest
+moment of inertia wins every time.`,
+`<p>This is why a quadrotor rolls and pitches crisply but yaws sluggishly: roll and pitch are driven by big thrust
+differences on long arms against a small <code>I</code>, while yaw fights a larger <code>I</code> with only motor
+drag torque.</p>
+<p>Full form is <code>τ = Iα + ω × (Iω)</code>. That second term is the gyroscopic coupling that makes fast-spinning
+asymmetric bodies tumble in ways <code>τ = Iα</code> alone won't predict — worth knowing exists, not worth deriving
+today.</p>`,
+host=>{
+  const b=scope(host,'same torque applied about each axis','τ = I α');
+  const cv=makeCanvas(b,210);
+  const c=new Chart(b,{h:120,title:'ω · angular velocity (rad/s) under identical torque',
+    series:[{name:'about X',color:C.ch3,head:1},{name:'about Y',color:C.ch4,head:1},{name:'about Z',color:C.ch1,head:1}]});
+  const view=makeView(cv,50);
+  const row=controls(host);
+  const tq=slider(row,{label:'applied torque',min:0,max:2,step:.02,value:.4,unit:'N·m',dec:2});
+  const m=slider(row,{label:'mass',min:.5,max:20,step:.1,value:5,unit:'kg',dec:1});
+  const dxs=slider(row,{label:'size along X',min:.1,max:1.6,step:.02,value:1.2,unit:'m',dec:2});
+  const st=stats(host);
+  st.add('ax','α about X',C.ch3).add('ay','α about Y',C.ch4).add('az','α about Z',C.ch1);
+  let t=0,w=[0,0,0],th=[0,0,0];
+  button(btnrow(row),'Reset',()=>{t=0;w=[0,0,0];th=[0,0,0];c.clear();});
+  const dyv=.5,dzv=.3;
+  return{
+    step(dt){t+=dt;
+      const I=[m.v*(dyv**2+dzv**2)/12, m.v*(dxs.v**2+dzv**2)/12, m.v*(dxs.v**2+dyv**2)/12];
+      const al=I.map(i=>tq.v/i);
+      for(let k=0;k<3;k++){w[k]=clamp(w[k]+al[k]*dt,-10,10); th[k]+=w[k]*dt;}
+      c.push(t,w); c.window(t,10);
+      st.set('ax',nf(al[0],2)+' rad/s²'); st.set('ay',nf(al[1],2)+' rad/s²'); st.set('az',nf(al[2],2)+' rad/s²');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      view.cy=H*.5;
+      [[C.ch3,0,'about X'],[C.ch4,1,'about Y'],[C.ch1,2,'about Z']].forEach(([col,k,nm])=>{
+        view.cx=W*(0.2+k*0.3);
+        const R=k===0?M.rx(th[0]):k===1?M.ry(th[1]):M.rz(th[2]);
+        const mm=M.mul(view.mat(),R);
+        cube3(ctx,view,mm,dxs.v/2,dyv/2,dzv/2,col);
+        const ax=[[1.4,0,0],[0,1.4,0],[0,0,1.4]][k];
+        const o=view.p([0,0,0],view.mat()), s=view.p(ax,view.mat());
+        arrow(ctx,o[0],o[1],s[0],s[1],col,1.5,7);
+        label(ctx,view.cx,H-14,nm+'  ω='+nf(w[k],2),col,10);});
+      c.draw();}};
+});
+
+/* ================= ORIENTATION ================= */
+
+L('Orientation','Why three angles break — gimbal lock','yaw · pitch · roll',
+`Euler angles chain three rotations: yaw about Z, then pitch about the new Y, then roll about the new X. Drag the
+pitch slider to <b>±90°</b> and watch the outer axis and the inner axis line up. Once they're parallel, changing yaw
+and changing roll do <em>exactly the same thing</em> to the body — you had three knobs and you're down to two.
+You cannot rotate out of it; the representation itself lost a degree of freedom.`,
+`<p>Sit near pitch = 90° and press <b>wiggle yaw</b> then <b>wiggle roll</b>. Identical body motion. Meanwhile the
+angles needed to hold a smooth path go to infinity — this is the "flip" you see in a badly-parameterised camera
+gimbal or an aircraft going vertical.</p>
+<p>It's not a bug in the hardware and it isn't fixed by picking a different order — every three-parameter
+description of 3D rotation has a singularity somewhere. Euler angles are fine for <em>displaying</em> an
+orientation to a human, and a poor choice for computing with one.</p>`,
+host=>{
+  const b=scope(host,'nested gimbal rings · drag to orbit','R = Rz(ψ)·Ry(θ)·Rx(φ)');
+  const cv=makeCanvas(b,300);
+  const view=makeView(cv,66,-0.7,0.4);
+  const row=controls(host);
+  const yaw=slider(row,{label:'yaw ψ  (about Z)',min:-180,max:180,step:1,value:30,unit:'°',dec:0});
+  const pit=slider(row,{label:'pitch θ  (about Y′)',min:-90,max:90,step:.5,value:20,unit:'°',dec:1});
+  const rol=slider(row,{label:'roll φ  (about X″)',min:-180,max:180,step:1,value:0,unit:'°',dec:0});
+  const br=btnrow(row);
+  let wig=null,wt=0;
+  button(br,'Wiggle yaw',()=>{wig='y';wt=0;});
+  button(br,'Wiggle roll',()=>{wig='r';wt=0;});
+  button(br,'Go to pitch 90°',()=>{pit.v=90;});
+  const st=stats(host);
+  st.add('al','axis alignment |Z · X″|').add('dof','usable axes').add('state','status');
+  const D=x=>x*Math.PI/180;
+  let base={y:0,r:0};
+  return{
+    step(dt){
+      if(wig){ if(wt===0)base={y:yaw.v,r:rol.v};
+        wt+=dt; const a=Math.sin(wt*4)*25;
+        if(wig==='y')yaw.v=base.y+a; else rol.v=base.r+a;
+        if(wt>3){if(wig==='y')yaw.v=base.y; else rol.v=base.r; wig=null;} }
+      const Rz=M.rz(D(yaw.v)), Ry=M.ry(D(pit.v));
+      const a3=M.ap(M.mul(Rz,Ry),[1,0,0]);
+      const al=Math.abs(a3[2]);
+      st.set('al',nf(al,3),al>.9?C.fault:C.tx);
+      st.set('dof',al>.995?'2 of 3':'3 of 3',al>.995?C.fault:C.ch4);
+      st.set('state',al>.995?'GIMBAL LOCK':al>.9?'near singular':'healthy',al>.9?C.fault:C.ch4);},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      view.cx=W/2; view.cy=H*.5;
+      const V=view.mat(), Rz=M.rz(D(yaw.v)), Ry=M.ry(D(pit.v)), Rx=M.rx(D(rol.v));
+      const M1=M.mul(V,Rz), M2=M.mul(M1,Ry), M3=M.mul(M2,Rx);
+      poly3(ctx,circle3(60,1.75,'xy'),view,M1,C.ch1,true,2);
+      poly3(ctx,circle3(60,1.42,'xz'),view,M2,C.ch2,true,2);
+      poly3(ctx,circle3(60,1.12,'yz'),view,M3,C.ch3,true,2);
+      cube3(ctx,view,M3,.45,.3,.18,C.frame);
+      // rotation axes
+      const dr=(v,m,col,nm)=>{const p=view.p([-v[0]*2.1,-v[1]*2.1,-v[2]*2.1],m),q=view.p([v[0]*2.1,v[1]*2.1,v[2]*2.1],m);
+        ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx,q[0],q[1]-10,nm,col,9.5);};
+      dr([0,0,1],V,C.ch1,'yaw axis'); dr([0,1,0],M1,C.ch2,'pitch axis'); dr([1,0,0],M2,C.ch3,'roll axis');
+      const a3=M.ap(M.mul(Rz,Ry),[1,0,0]), al=Math.abs(a3[2]);
+      // alignment meter
+      const bx=16,by=H-26,bw=Math.min(200,W*.4);
+      ctx.fillStyle=C.rule2; ctx.fillRect(bx,by,bw,8);
+      ctx.fillStyle=al>.9?C.fault:C.ch4; ctx.fillRect(bx,by,bw*al,8);
+      label(ctx,bx,by-10,'yaw axis vs roll axis alignment',C.dim,9.5,'left');
+      if(al>.995){label(ctx,W/2,26,'GIMBAL LOCK — yaw and roll now do the same thing',C.fault,12);}
+      label(ctx,W-8,H-14,'drag to orbit',C.dim,9,'right');}};
+});
+
+L('Orientation','Quaternions, conceptually','q = (w, x, y, z)',
+`Forget the algebra. Here is the whole idea: <b>any orientation in 3D is a single rotation by some angle about some
+axis.</b> A quaternion just stores that — three numbers for the axis direction, one for how far you turned. The
+only quirk worth remembering is that it stores the <b>half angle</b>: <code>w = cos(θ/2)</code> and the vector part
+is <code>sin(θ/2)</code> times the unit axis.`,
+`<p>Sweep the axis anywhere you like. There is no orientation you can't reach and no configuration where a knob
+stops working — <b>no singularity</b>. That's the entire reason robots and spacecraft store orientation this way.</p>
+<p>Four numbers describing three degrees of freedom means there's one redundant number, which is why quaternions
+always carry the constraint <code>w² + x² + y² + z² = 1</code>. Renormalise after every integration step or
+floating-point drift will slowly turn your rotation into a scaling.</p>`,
+host=>{
+  const b=scope(host,'axis + angle, stored as four numbers','w = cos(θ/2)');
+  const cv=makeCanvas(b,280);
+  const view=makeView(cv,64,-0.7,0.38);
+  const row=controls(host);
+  const az=slider(row,{label:'axis azimuth',min:-180,max:180,step:1,value:35,unit:'°',dec:0});
+  const ev=slider(row,{label:'axis elevation',min:-90,max:90,step:1,value:35,unit:'°',dec:0});
+  const th=slider(row,{label:'rotation angle θ',min:-180,max:180,step:1,value:75,unit:'°',dec:0});
+  const st=stats(host);
+  st.add('w','w = cos(θ/2)',C.ch1).add('x','x',C.ch3).add('y','y',C.ch4).add('z','z',C.frame).add('n','norm');
+  const D=x=>x*Math.PI/180;
+  const axis=()=>{const a=D(az.v),e=D(ev.v); return [Math.cos(e)*Math.cos(a),Math.cos(e)*Math.sin(a),Math.sin(e)];};
+  return{
+    step(){const a=axis(), t=D(th.v), s=Math.sin(t/2);
+      const q=[Math.cos(t/2),a[0]*s,a[1]*s,a[2]*s];
+      st.set('w',nf(q[0],3)); st.set('x',nf(q[1],3)); st.set('y',nf(q[2],3)); st.set('z',nf(q[3],3));
+      st.set('n',nf(Math.hypot(...q),4));},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      view.cx=W*.36; view.cy=H*.52;
+      const V=view.mat(), a=axis(), R=M.axang(a,D(th.v)), MM=M.mul(V,R);
+      ctx.globalAlpha=.35; axes3(ctx,view,V,1.5,['x','y','z']); ctx.globalAlpha=1;
+      // the rotation axis
+      const p0=view.p(a.map(k=>-k*1.9),V), p1=view.p(a.map(k=>k*1.9),V);
+      ctx.strokeStyle=C.ch2; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+      label(ctx,p1[0]+8,p1[1]-8,'rotation axis',C.ch2,10,'left');
+      // little arc around axis
+      const perp=Math.abs(a[2])<.9?[-a[1],a[0],0]:[1,0,0];
+      const n=Math.hypot(...perp), u=perp.map(k=>k/n), v2=[a[1]*u[2]-a[2]*u[1],a[2]*u[0]-a[0]*u[2],a[0]*u[1]-a[1]*u[0]];
+      ctx.strokeStyle=C.ch2; ctx.lineWidth=2; ctx.beginPath();
+      const seg=40, T=D(th.v);
+      for(let i=0;i<=seg;i++){const ph=T*i/seg, r=.9;
+        const pt=[0,1,2].map(k=>u[k]*Math.cos(ph)*r+v2[k]*Math.sin(ph)*r);
+        const s=view.p(pt,V); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]);}
+      ctx.stroke();
+      cube3(ctx,view,MM,.6,.42,.24,C.frame);
+      axes3(ctx,view,MM,1.05,['','','']);
+      // bars
+      const t2=D(th.v), s2=Math.sin(t2/2), q=[Math.cos(t2/2),a[0]*s2,a[1]*s2,a[2]*s2];
+      const bx=W*.72, bw=Math.min(W*.24,150);
+      label(ctx,bx,24,'the four numbers',C.mut,10,'left');
+      ['w','x','y','z'].forEach((nm,i)=>{const y=46+i*34, col=[C.ch1,C.ch3,C.ch4,C.frame][i];
+        ctx.fillStyle=C.rule2; ctx.fillRect(bx,y,bw,14);
+        ctx.fillStyle=col; const v=q[i];
+        ctx.fillRect(bx+bw/2,y,v*bw/2,14);
+        ctx.strokeStyle=C.rule; ctx.beginPath(); ctx.moveTo(bx+bw/2,y-2); ctx.lineTo(bx+bw/2,y+16); ctx.stroke();
+        label(ctx,bx-6,y+7,nm,col,11,'right');
+        label(ctx,bx+bw+6,y+7,nf(v,3),C.mut,9.5,'left');});
+      label(ctx,bx,H-30,'θ/2 = '+nf(th.v/2,1)+'°',C.ch2,10,'left');
+      label(ctx,bx,H-14,'no axis is special → no lock',C.ch4,9.5,'left');}};
+});
+
+L('Orientation','q and −q are the same rotation','dot < 0 → flip the sign',
+`Negate all four numbers and you get the identical orientation — the same axis turned the other way by
+<code>360° − θ</code> lands you in the same place. Harmless when you're just <em>storing</em> a pose. Vicious when
+you <em>interpolate</em>: blend naively toward the wrong sign and your arm takes the 300° route to a 60° target.`,
+`<p>Turn the sign check off and watch the right-hand body take the scenic route. The endpoints are identical; only
+the path differs. The fix is one line — if <code>dot(q₀, q₁) &lt; 0</code>, negate <code>q₁</code> before you
+interpolate.</p>
+<p>Symptoms in the wild: an end-effector that occasionally spins nearly all the way round on its way to a pose it
+was already close to, and does it only for <em>some</em> targets. If that sounds familiar, you have this bug.</p>`,
+host=>{
+  const b=scope(host,'same start, same goal, two paths','if q₀·q₁ < 0 → negate q₁');
+  const cv=makeCanvas(b,250);
+  const c=new Chart(b,{h:110,title:'angle travelled from start (°)',yr:[0,370],
+    series:[{name:'sign-checked',color:C.ch4,head:1},{name:'naive',color:C.fault,head:1}]});
+  const view=makeView(cv,52,-0.6,0.35);
+  const row=controls(host);
+  const goal=slider(row,{label:'goal rotation about Z',min:-180,max:180,step:1,value:110,unit:'°',dec:0,
+    on:()=>{t=0;c.clear();}});
+  const br=btnrow(row);
+  let fix=true;
+  toggle(br,'Sign check on',true,v=>fix=v);
+  let t=0;
+  button(br,'Replay',()=>{t=0;c.clear();});
+  const st=stats(host);
+  st.add('short','sign-checked path',C.ch4).add('long','naive path',C.fault).add('q','stored q').add('qn','and −q');
+  const Q={
+    ax:(a,t)=>{const s=Math.sin(t/2); return [Math.cos(t/2),a[0]*s,a[1]*s,a[2]*s];},
+    dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3],
+    neg:q=>q.map(v=>-v),
+    slerp:(a,b,u)=>{let d=Q.dot(a,b); d=clamp(d,-1,1);
+      const th=Math.acos(d); if(th<1e-4)return a.slice();
+      const s=Math.sin(th);
+      return a.map((v,i)=>(Math.sin((1-u)*th)*v+Math.sin(u*th)*b[i])/s);},
+    M:q=>{const [w,x,y,z]=q; return [
+      [1-2*(y*y+z*z),2*(x*y-w*z),2*(x*z+w*y)],
+      [2*(x*y+w*z),1-2*(x*x+z*z),2*(y*z-w*x)],
+      [2*(x*z-w*y),2*(y*z+w*x),1-2*(x*x+y*y)]];},
+    ang:(a,b)=>2*Math.acos(clamp(Math.abs(Q.dot(a,b)),-1,1))
+  };
+  return{
+    step(dt){t=Math.min(t+dt*.35,1.0001);
+      const q0=[1,0,0,0];
+      let q1=Q.ax([0,0,1],goal.v*Math.PI/180);
+      if(Q.dot(q0,q1)<0)q1=Q.neg(q1);          // canonical target
+      const qBad=Q.neg(q1);                     // the equally-valid-but-wrong-sign copy
+      const qa=Q.slerp(q0,fix?q1:qBad,Math.min(t,1));
+      const qb=Q.slerp(q0,qBad,Math.min(t,1));
+      this._a=qa; this._b=qb; this._u=Math.min(t,1);
+      const deg=q=>{const w=clamp(Math.abs(q[0]),0,1); return 2*Math.acos(w)*180/Math.PI;};
+      const trav=q=>{const d=clamp(q[0],-1,1); return 2*Math.acos(d)*180/Math.PI;};
+      if(t<1.0001)c.push(this._u*100,[trav(qa),trav(qb)]);
+      c.o.xr=[0,100]; c.o.xl='interpolation %';
+      st.set('short',nf(Math.min(Math.abs(goal.v),360-Math.abs(goal.v)),0)+'°');
+      st.set('long',nf(360-Math.min(Math.abs(goal.v),360-Math.abs(goal.v)),0)+'°');
+      st.set('q','('+q1.map(v=>nf(v,2)).join(', ')+')');
+      st.set('qn','('+qBad.map(v=>nf(v,2)).join(', ')+')');},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const V=view.mat(); view.cy=H*.5;
+      [[W*.28,this._a,fix?C.ch4:C.fault,fix?'sign check ON — short way':'sign check OFF'],
+       [W*.72,this._b,C.fault,'naive blend — long way']].forEach(([cx,q,col,nm])=>{
+        if(!q)return; view.cx=cx;
+        const MM=M.mul(V,Q.M(q));
+        ctx.globalAlpha=.3; axes3(ctx,view,V,1.3,['','','']); ctx.globalAlpha=1;
+        cube3(ctx,view,MM,.7,.45,.25,col);
+        axes3(ctx,view,MM,1.0,['','','']);
+        label(ctx,cx,H-14,nm,col,10);});
+      label(ctx,W/2,16,'both arrive at exactly the same orientation',C.mut,10);
+      c.draw();}};
+});
+</script>
+<script>
+/* ================= CONTROL ================= */
+
+/* shared second-order plant with a PID around it */
+function pdSim(host,opt){
+  const o=Object.assign({kp:20,kd:0,ki:0,m:1,showKd:1,showKi:0,showM:1,showDist:0,dist:0,
+    period:6,sat:80,label:'mass on a frictionless rail',eq:'u = kp·e − kd·ẋ',extra:null,showFF:0,effort:1},opt);
+  const b=scope(host,o.label,o.eq);
+  const cvExtra=o.extra?makeCanvas(b,o.extraH||150):null;
+  const cv=makeCanvas(b,110);
+  const c1=new Chart(b,{h:130,title:'x · position (m) vs target',yr:[-.35,1.6],
+    series:[{name:'x',color:C.ch1,head:1},{name:'target',color:C.ref,dash:[5,4]}]});
+  const c2=o.effort?new Chart(b,{h:96,title:'u · commanded force (N)',symmetric:1,
+    series:[{name:'u',color:C.ch3,w:1.4},{name:'saturation',color:C.fault,dash:[3,3],w:1}]}):null;
+  const row=controls(host);
+  const S={t:0,x:0,v:0,e:0,u:0,I:0,r:1,seg:0,peak:0,x0:0,os:0,ts:NaN,ss:0,sat:false};
+  const sl={};
+  sl.kp=slider(row,{label:'kp — proportional gain',min:0,max:o.kpMax||140,step:.5,value:o.kp,dec:1});
+  if(o.showKd)sl.kd=slider(row,{label:'kd — derivative gain',min:0,max:o.kdMax||45,step:.1,value:o.kd,dec:1});
+  if(o.showKi)sl.ki=slider(row,{label:'ki — integral gain',min:0,max:o.kiMax||60,step:.5,value:o.ki,dec:1});
+  if(o.showM)sl.m=slider(row,{label:'mass',min:.2,max:6,step:.05,value:o.m,unit:'kg',dec:2});
+  if(o.showDist)sl.dist=slider(row,{label:'constant disturbance (gravity, spring, friction…)',min:-12,max:0,step:.2,value:o.dist,unit:'N',dec:1});
+  const br=btnrow(row);
+  let ff=false;
+  if(o.showFF)toggle(br,'Feed-forward the disturbance',false,v=>ff=v);
+  const st=stats(host);
+  st.add('e','error e = r − x',C.ch2).add('u','control u',C.ch3).add('os','overshoot').add('ts','settling time (2%)').add('ze','damping ratio ζ');
+  button(br,'Reset',()=>{S.t=0;S.x=0;S.v=0;S.I=0;c1.clear();c2&&c2.clear();});
+  const get=k=>sl[k]?sl[k].v:(o[k]||0);
+  const api={S,sl,st,c1,c2,cv,cvExtra,
+    step(dt){
+      dt=Math.min(dt,.03);
+      const kp=get('kp'),kd=get('kd'),ki=o.showKi?get('ki'):0,m=get('m')||1,d=o.showDist?get('dist'):0;
+      const sub=4, h=dt/sub;
+      for(let k=0;k<sub;k++){
+        S.t+=h;
+        const nr=(Math.floor(S.t/o.period)%2)?0:1;
+        if(nr!==S.r){S.r=nr; S.seg=S.t; S.x0=S.x; S.peak=S.x; S.ts=NaN;}
+        S.e=S.r-S.x;
+        S.I+=S.e*h;
+        if(ki>0)S.I=clamp(S.I,-o.sat/ki,o.sat/ki);
+        let u=kp*S.e-kd*S.v+ki*S.I+(ff?-d:0);
+        S.sat=Math.abs(u)>o.sat; S.u=clamp(u,-o.sat,o.sat);
+        const a=(S.u+d)/m;
+        S.v+=a*h; S.x+=S.v*h;
+        if(!isFinite(S.x)){S.x=0;S.v=0;S.I=0;}
+        // metrics
+        const span=S.r-S.x0||1;
+        if(span>0?S.x>S.peak:S.x<S.peak)S.peak=S.x;
+        if(Math.abs(S.x-S.r)>0.02*Math.abs(span))S.ts=S.t-S.seg;
+      }
+      c1.push(S.t,[S.x,S.r]); c2&&c2.push(S.t,[S.u,o.sat<70?o.sat:null]);
+      c1.window(S.t,12); c2&&c2.window(S.t,12);
+      const span=S.r-S.x0||1;
+      S.os=Math.max(0,(S.peak-S.r)/span*100);
+      const ze=kd/(2*Math.sqrt(Math.max(kp,1e-6)*m));
+      st.set('e',nf(S.e,3)+' m'); st.set('u',nf(S.u,1)+' N',S.sat?C.fault:C.ch3);
+      st.set('os',nf(S.os,1)+' %',S.os>1?C.ch2:C.ch4);
+      st.set('ts',isFinite(S.ts)?nf(S.ts,2)+' s':'—');
+      st.set('ze',nf(ze,2)+(ze<.92?'  under':ze>1.08?'  over':'  critical'),
+        Math.abs(ze-1)<.08?C.ch4:ze<1?C.ch2:C.frame);
+      S.ze=ze;
+    },
+    draw(){
+      const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const y=H*.55, L=60, R=W-60, X=x=>L+x*(R-L);
+      track(ctx,W,y+22,40,40);
+      ctx.strokeStyle=C.ref; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(X(S.r),y-34); ctx.lineTo(X(S.r),y+24); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx,X(S.r),y-44,'target',C.ref,9.5);
+      const cx=clamp(X(S.x),20,W-20);
+      // error bar
+      ctx.strokeStyle=C.ch2; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(cx,y+34); ctx.lineTo(X(S.r),y+34); ctx.stroke();
+      label(ctx,(cx+X(S.r))/2,y+46,'e = '+nf(S.e,2),C.ch2,9.5);
+      arrow(ctx,cx,y+2,cx+clamp(S.u,-40,40)*1.5,y+2,S.sat?C.fault:C.ch3,3,9);
+      box(ctx,cx,y+2,32,30,'#12324a',C.ch1);
+      if(o.extra)o.extra(cvExtra.ctx,cvExtra.W,cvExtra.H,S,{kp:get('kp'),kd:get('kd'),ki:o.showKi?get('ki'):0});
+      c1.draw(); c2&&c2.draw();
+    }};
+  return api;
+}
+
+L('Control','Open loop vs closed loop','open: u(t) planned   ·   closed: u(e)',
+`An <b>open-loop</b> controller computes the forces it thinks will work, fires them, and never looks. It's perfect
+when your model is perfect. A <b>closed-loop</b> controller measures where it actually ended up and corrects.
+Add mass error or a disturbance and watch which one still lands on the target.`,
+`<p>With zero model error the open-loop cart is flawless — and cheaper, smoother, and faster than feedback.
+Nudge the mass error and it misses by exactly the fraction you lied about.</p>
+<p>Real systems use both: feed-forward what you can predict (gravity compensation, planned acceleration) and let
+feedback clean up only the residual. Feedback alone is a controller that's always late, because it can't act until
+an error already exists.</p>`,
+host=>{
+  const b=scope(host,'same 1 m move, two strategies','feed-forward + feedback');
+  const cv=makeCanvas(b,180);
+  const c=new Chart(b,{h:130,title:'x · position (m)',yr:[-.2,1.5],
+    series:[{name:'open loop',color:C.ch3,head:1},{name:'closed loop',color:C.ch4,head:1},{name:'target',color:C.ref,dash:[5,4]}]});
+  const row=controls(host);
+  const merr=slider(row,{label:'mass error — model says 1 kg, truth is…',min:.4,max:2.5,step:.02,value:1,unit:'kg',dec:2});
+  const dist=slider(row,{label:'unmodelled disturbance',min:-4,max:4,step:.1,value:0,unit:'N',dec:1});
+  const st=stats(host);
+  st.add('eo','open-loop final error',C.ch3).add('ec','closed-loop final error',C.ch4);
+  let t=0,xo=0,vo=0,xc=0,vc=0;
+  button(btnrow(row),'Reset',()=>{t=0;xo=vo=xc=vc=0;c.clear();});
+  const T=2, prof=u=>10*u**3-15*u**4+6*u**5;
+  const accFF=tt=>{const u=tt/T; if(u<0||u>1)return 0;
+    return (60*u-180*u*u+120*u**3)/(T*T);};
+  return{
+    step(dt){t+=dt; const cyc=t%5, r=cyc<T?prof(cyc/T):1;
+      if(cyc<dt){xo=vo=xc=vc=0;}
+      const m=merr.v, d=dist.v;
+      const uo=1*accFF(cyc);                        // model mass = 1 kg
+      vo+=(uo+d)/m*dt; xo+=vo*dt;
+      const uc=1*accFF(cyc)+45*(r-xc)-13*vc;
+      vc+=(uc+d)/m*dt; xc+=vc*dt;
+      c.push(t,[xo,xc,r]); c.window(t,10);
+      if(cyc>T){st.set('eo',nf(1-xo,3)+' m',Math.abs(1-xo)>.02?C.fault:C.ch4);
+        st.set('ec',nf(1-xc,3)+' m',Math.abs(1-xc)>.02?C.fault:C.ch4);}},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const Lx=60,Rx=W-60,X=x=>Lx+x*(Rx-Lx);
+      [[H*.3,xo,C.ch3,'OPEN LOOP — fires a planned force profile, never measures'],
+       [H*.72,xc,C.ch4,'CLOSED LOOP — measures x, corrects']].forEach(([y,x,col,tx])=>{
+        track(ctx,W,y+20,40,40);
+        ctx.strokeStyle=C.ref; ctx.setLineDash([4,4]); ctx.beginPath();
+        ctx.moveTo(X(1),y-24); ctx.lineTo(X(1),y+22); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx,Lx,y-32,tx,col,9.5,'left');
+        box(ctx,clamp(X(x),16,W-16),y+2,30,28,'#12324a',col);});
+      c.draw();}};
+});
+
+L('Control','Feedback and error','e = target − measured',
+`Every feedback controller is the same three steps in a loop, thousands of times a second: <b>measure</b> where you
+are, <b>subtract</b> from where you want to be, <b>act</b> on the difference. That difference — the error — is the
+only thing the controller ever sees. It does not know where the target is or where the robot is, only the gap.`,
+`<p>Follow the numbers around the diagram. When <code>e</code> hits zero the command hits zero too — a pure
+proportional controller stops pushing exactly when it arrives, which is precisely why it sails past.</p>
+<p>Get in the habit of plotting <code>e</code>, not <code>x</code>. Almost every control bug is legible in the error
+trace and invisible in the position trace.</p>`,
+host=>{
+  const sim=pdSim(host,{kp:14,kd:0,showKd:0,showM:0,m:1,effort:0,extraH:170,
+    label:'the loop, with live numbers',eq:'e = r − x   ·   u = kp·e',
+    extra:(ctx,W,H,S,g)=>{
+      ctx.clearRect(0,0,W,H);
+      const y=H*.42, bw=Math.min(110,W*.19), bh=44;
+      const bxs=[W*.30,W*.55,W*.80];
+      const node=(x,t1,t2,col)=>{ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.fillStyle='#0f1a2a';
+        ctx.beginPath(); ctx.roundRect(x-bw/2,y-bh/2,bw,bh,6); ctx.fill(); ctx.stroke();
+        label(ctx,x,y-8,t1,col,10); label(ctx,x,y+9,t2,C.mut,9.5);};
+      // summing junction
+      const sx=W*.13;
+      ctx.strokeStyle=C.ch2; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(sx,y,15,0,TAU); ctx.stroke();
+      label(ctx,sx,y,'\u2212',C.ch2,14);
+      label(ctx,20,y-24,'target r',C.ref,10,'left');
+      arrow(ctx,20,y,sx-16,y,C.ref,1.5,7);
+      label(ctx,26,y+16,nf(S.r,2),C.ref,11,'left');
+      arrow(ctx,sx+16,y,bxs[0]-bw/2,y,C.ch2,1.5,7);
+      label(ctx,(sx+bxs[0]-bw/2)/2+8,y-14,'e = '+nf(S.e,3),C.ch2,10.5);
+      node(bxs[0],'controller','u = kp · e',C.ch3);
+      arrow(ctx,bxs[0]+bw/2,y,bxs[1]-bw/2,y,C.ch3,1.5,7);
+      label(ctx,(bxs[0]+bxs[1])/2,y-14,'u = '+nf(S.u,1)+' N',C.ch3,10.5);
+      node(bxs[1],'the robot','a = u / m',C.ch1);
+      arrow(ctx,bxs[1]+bw/2,y,bxs[2]-bw/2,y,C.ch1,1.5,7);
+      node(bxs[2],'sensor','measures x',C.ch1);
+      // feedback path
+      ctx.strokeStyle=C.ch1; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(bxs[2],y+bh/2); ctx.lineTo(bxs[2],y+58); ctx.lineTo(sx,y+58); ctx.lineTo(sx,y+16); ctx.stroke();
+      ctx.setLineDash([]);
+      arrow(ctx,sx,y+30,sx,y+17,C.ch1,1.5,7);
+      label(ctx,(sx+bxs[2])/2,y+70,'measured x = '+nf(S.x,3)+' m',C.ch1,10.5);
+      label(ctx,W-6,14,'kp = '+nf(g.kp,1),C.mut,10,'right');}});
+  return sim;
+});
+
+L('Control','P — push harder when you\u2019re further away','u = kp · e',
+`The proportional term is a spring you invented in software: force proportional to distance from the goal. Turn
+<code>kp</code> up and the response gets faster and stiffer. There is no damping here at all, so what you actually
+built is a mass on a spring — and a mass on a spring oscillates forever.`,
+`<p>Raise <code>kp</code> and the oscillation gets <em>faster</em>, not smaller. Frequency
+<code>ω = √(kp/m)</code>. Stiffer never means calmer.</p>
+<p>The reason it overshoots is worth saying out loud: at the moment it reaches the target the error is zero, so the
+command is zero — but the velocity <em>isn't</em>. Nothing is left to stop it. P alone cannot know it's arriving
+too fast.</p>`,
+host=>pdSim(host,{kp:25,kd:0,showKd:0,showM:1,m:1,label:'proportional only — a software spring',eq:'u = kp·e'}));
+
+L('Control','D — ease off when you\u2019re moving fast','u = kp·e − kd·ẋ',
+`The derivative term is a damper: a force opposing velocity, regardless of where the target is. It's the brake that
+P doesn't have. Start with <code>kd = 0</code> and creep it up — the ringing collapses. Push it far too high and the
+cart becomes sluggish, because now you're fighting your own brake the whole way.`,
+`<p><b>Derivative of what?</b> Here <code>kd</code> acts on measured velocity, not on the derivative of the error.
+They're identical when the target is constant, but on a moving target using <code>d(error)/dt</code> produces a
+violent kick every time the setpoint steps. Damping the measurement is almost always what you want.</p>
+<p>D is also the term that eats your sensor noise, since differentiating a noisy signal amplifies exactly the
+high frequencies you don't want. Low-pass your velocity estimate or your motors will scream.</p>`,
+host=>pdSim(host,{kp:25,kd:3,showKd:1,showM:1,m:1,label:'proportional + derivative',eq:'u = kp·e − kd·ẋ'}));
+
+L('Control','Overshoot, oscillation, damping','ζ = kd / (2√(kp·m))',
+`Three names for what you're looking at. <b>Overshoot</b>: it went past. <b>Oscillation</b>: it went past repeatedly.
+<b>Damping</b>: how quickly that dies. One number summarises it — the damping ratio <code>ζ</code>. Below 1 you ring;
+above 1 you crawl; at 1 you get there as fast as possible without ever crossing.`,
+`<p>Try to hit 5% overshoot — that's <code>ζ ≈ 0.7</code>, the sweet spot most people tune to because it settles
+faster than critical damping and the small overshoot is harmless.</p>
+<p>Notice the settling time reading. Under-damped systems reach the target quickly and then <em>waste</em> a long
+time ringing around it. "Fast" and "settles fast" are not the same specification, and the one you care about is
+almost always the second.</p>`,
+host=>pdSim(host,{kp:40,kd:4,showKd:1,showM:1,m:1,label:'tune it — watch ζ, overshoot and settling time',eq:'ζ = kd / 2√(kp·m)'}));
+
+L('Control','Critically damped — kd = 2\u221A(kp·m)','ζ = 1',
+`Set the damping so the system arrives at the target in the shortest possible time <em>without</em> crossing it.
+Solve <code>ζ = 1</code> and you get <code>kd = 2√(kp·m)</code> — for a 1 kg mass, simply <code>kd = 2√kp</code>.
+Press the button to snap to it, then detune either way and watch the two failure modes.`,
+`<p>Two things fall out of this that people get wrong:</p>
+<p>First — <b>kp and kd are not independent knobs.</b> Change kp and your damping ratio changes underneath you.
+Retune kd every time you touch kp, or better, tune in terms of ζ and natural frequency and let the gains follow.</p>
+<p>Second — <b>the mass is in the formula.</b> A robot arm's effective inertia at the end-effector changes as it
+folds up, and by a lot. Gains that are critically damped extended are wildly under-damped tucked in. This is why
+serious arm controllers compute gains from the current inertia rather than storing constants.</p>`,
+host=>{
+  const sim=pdSim(host,{kp:40,kd:12.6,showKd:1,showM:1,m:1,
+    label:'ζ = 1 is the fastest arrival with no overshoot',eq:'kd = 2√(kp·m)'});
+  const row=controls(host);
+  const b2=btnrow(row);
+  const set=z=>{const kp=sim.sl.kp.v, m=sim.sl.m?sim.sl.m.v:1; sim.sl.kd.v=+(z*2*Math.sqrt(kp*m)).toFixed(1);};
+  button(b2,'Under-damped  ζ = 0.3',()=>set(.3));
+  button(b2,'Critically damped  ζ = 1',()=>set(1)).classList.add('on');
+  button(b2,'Over-damped  ζ = 2.5',()=>set(2.5));
+  const note=el('div','notice','<h5>the formula, live</h5><p class="formula" id="ceq"></p>');
+  host.appendChild(note);
+  const eq=note.querySelector('#ceq');
+  const inner=sim.step.bind(sim);
+  sim.step=dt=>{inner(dt);
+    const kp=sim.sl.kp.v,m=sim.sl.m?sim.sl.m.v:1;
+    eq.textContent='kd = 2\u221A(kp · m) = 2\u221A('+nf(kp,1)+' \u00d7 '+nf(m,2)+') = '+nf(2*Math.sqrt(kp*m),2)+
+      '     you have kd = '+nf(sim.sl.kd.v,1)+'   \u2192  \u03b6 = '+nf(sim.S.ze,2);};
+  return sim;
+});
+
+L('Control','What I does, and why you reach for it last','u = kp·e + ki·∫e dt − kd·ẋ',
+`Add a constant disturbance — gravity on an arm, a spring, stiction — and P settles with a permanent offset, because
+it needs a non-zero error to generate the force that holds against it. Steady-state error is exactly
+<code>disturbance / kp</code>. The integral term accumulates that leftover error until it produces the force
+needed, then holds it, and the offset goes to zero.`,
+`<p>Now turn <code>ki</code> up too far. The integral keeps winding while the system is still travelling, so it
+arrives already committed to a huge push — overshoot, then a long slow limp cycle. Saturate the actuator and it gets
+worse: the integral winds up against a limit it can't exceed and takes forever to unwind.</p>
+<p><b>Why you avoid it in robotics.</b> I adds lag and eats phase margin, it winds up whenever the actuator
+saturates, it integrates sensor bias, and it makes the response depend on history rather than the current state.
+When you know the disturbance — and in robotics you usually do, because it's gravity and you have a model — you can
+just <em>add it</em>. Switch on feed-forward and watch the offset vanish with ki = 0, no lag, no windup.</p>`,
+host=>pdSim(host,{kp:30,kd:9,ki:0,showKd:1,showKi:1,showM:1,showDist:1,dist:-5,showFF:1,sat:40,
+  label:'constant disturbance pulling down',eq:'e_ss = disturbance / kp'}));
+
+/* ================= FRAMES ================= */
+
+L('Frames','World frame vs body frame','p_body = Rᵀ (p_world − t)',
+`The same point has different coordinates depending on who's asking. The <b>world frame</b> is bolted to the room:
+the goal is at (2.0, 1.0) and stays there. The <b>body frame</b> rides on the robot: the same landmark is "1.4 m
+ahead and 0.6 m to the left of <em>me</em>", and those numbers change every time the robot turns — even when it
+hasn't moved.`,
+`<p>Drive with the arrow keys. The world coordinates of the landmark never change. The body coordinates change
+constantly. Rotate on the spot: world numbers frozen, body numbers spinning.</p>
+<p>Rule of thumb: anything about <b>where things are</b> lives in the world frame. Anything a sensor on the robot
+reports, or an actuator on the robot produces, is <em>born</em> in the body frame. Nearly every frame bug is one
+missing rotation between those two facts.</p>`,
+host=>{
+  const b=scope(host,'arrow keys to drive · drag to place the robot','same point, two answers');
+  const cv=makeCanvas(b,320);
+  const row=controls(host);
+  const hd=slider(row,{label:'heading θ',min:-180,max:180,step:1,value:25,unit:'°',dec:0});
+  const st=stats(host);
+  st.add('w','landmark in WORLD',C.ch1).add('bd','landmark in BODY',C.frame)
+    .add('rw','robot in WORLD',C.ch1).add('th','heading');
+  const LM=[2.0,1.0];
+  let px=-0.6,py=-0.4;
+  let geo={};
+  onDrag(cv,pt=>{px=(pt[0]-geo.ox)/geo.S; py=-(pt[1]-geo.oy)/geo.S;});
+  return{
+    step(dt){
+      const th=hd.v*Math.PI/180;
+      if(keys.arrowleft)hd.v=hd.v-90*dt; if(keys.arrowright)hd.v=hd.v+90*dt;
+      if(hd.v>180)hd.v=hd.v-360; if(hd.v<-180)hd.v=hd.v+360;
+      const sp=(keys.arrowup?1:0)-(keys.arrowdown?1:0);
+      px+=Math.cos(th)*sp*1.2*dt; py+=Math.sin(th)*sp*1.2*dt;
+      px=clamp(px,-2.6,2.6); py=clamp(py,-1.6,1.6);
+      const dx=LM[0]-px, dy=LM[1]-py;
+      const bx= Math.cos(th)*dx+Math.sin(th)*dy;
+      const by=-Math.sin(th)*dx+Math.cos(th)*dy;
+      st.set('w','('+nf(LM[0],2)+', '+nf(LM[1],2)+')');
+      st.set('bd','('+nf(bx,2)+', '+nf(by,2)+')');
+      st.set('rw','('+nf(px,2)+', '+nf(py,2)+')');
+      st.set('th',nf(hd.v,0)+'°');
+      this._b=[bx,by];},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const S=Math.min(W/6.4,H/3.6), ox=W*.42, oy=H*.62; geo={ox,oy,S};
+      const X=x=>ox+x*S, Y=y=>oy-y*S;
+      ctx.strokeStyle=C.rule2; ctx.lineWidth=1;
+      for(let i=-3;i<=3;i++){ctx.beginPath(); ctx.moveTo(X(i),0); ctx.lineTo(X(i),H); ctx.stroke();}
+      for(let i=-2;i<=2;i++){ctx.beginPath(); ctx.moveTo(0,Y(i)); ctx.lineTo(W,Y(i)); ctx.stroke();}
+      // world frame
+      arrow(ctx,X(0),Y(0),X(0)+S*.9,Y(0),C.ch1,2.5,9); arrow(ctx,X(0),Y(0),X(0),Y(0)-S*.9,C.ch1,2.5,9);
+      label(ctx,X(0)+S*.9+12,Y(0)+4,'X world',C.ch1,10,'left');
+      label(ctx,X(0)+4,Y(0)-S*.9-10,'Y world',C.ch1,10,'left');
+      // landmark
+      ctx.fillStyle=C.ch2; ctx.beginPath(); ctx.arc(X(LM[0]),Y(LM[1]),7,0,TAU); ctx.fill();
+      label(ctx,X(LM[0]),Y(LM[1])-18,'landmark',C.ch2,10);
+      const th=hd.v*Math.PI/180, rx=X(px), ry=Y(py);
+      // body frame
+      arrow(ctx,rx,ry,rx+Math.cos(th)*S*.75,ry-Math.sin(th)*S*.75,C.frame,2.5,9);
+      arrow(ctx,rx,ry,rx-Math.sin(th)*S*.75,ry-Math.cos(th)*S*.75,C.frame,2.5,9);
+      label(ctx,rx+Math.cos(th)*S*.85,ry-Math.sin(th)*S*.85-10,'x body',C.frame,10);
+      label(ctx,rx-Math.sin(th)*S*.9,ry-Math.cos(th)*S*.9-8,'y body',C.frame,10);
+      // link
+      ctx.strokeStyle=C.ch2; ctx.setLineDash([4,4]); ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(rx,ry); ctx.lineTo(X(LM[0]),Y(LM[1])); ctx.stroke(); ctx.setLineDash([]);
+      // robot body
+      ctx.save(); ctx.translate(rx,ry); ctx.rotate(-th);
+      ctx.fillStyle='#1a2740'; ctx.strokeStyle=C.frame; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-13,12); ctx.lineTo(-8,0); ctx.lineTo(-13,-12);
+      ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      if(this._b)label(ctx,(rx+X(LM[0]))/2,(ry+Y(LM[1]))/2-12,
+        'body: ('+nf(this._b[0],2)+', '+nf(this._b[1],2)+')',C.frame,10);
+      label(ctx,W-8,H-12,'\u2191\u2193 drive · \u2190\u2192 turn · drag to reposition',C.dim,9.5,'right');}};
+});
+
+L('Frames','Why the wrench is body-frame but the position is world-frame','F_world = R(θ) · F_body',
+`A thruster, a wheel, a gripper: all of them push along an axis <em>attached to the robot</em>. That force-and-torque
+pair is called a <b>wrench</b>, and it is born in the body frame — "1 N forward" means forward relative to the robot,
+not relative to the room. But the goal you're steering toward is a place in the room. Integrating a body-frame force
+directly into a world-frame position is the single most common frame bug there is.`,
+`<p>Leave the thruster on and give the robot some spin. Applied in the <b>body frame</b> the force sweeps round with
+the robot and the path curls into a circle. Switch to <b>world frame</b> and the same magnitude drives a straight
+line. Only one of these is what the hardware actually does.</p>
+<p>The conversion is one rotation: <code>F_world = R(θ)·F_body</code>, and going the other way <code>R</code>
+transposed. Torques rotate too. Get in the habit of putting the frame in the variable name — <code>F_body</code>,
+<code>p_world</code>, <code>v_body</code> — and the bug becomes visible in the code instead of on the floor.</p>`,
+host=>{
+  const b=scope(host,'thruster fixed to the hull','F_world = R(θ) · F_body');
+  const cv=makeCanvas(b,320);
+  const row=controls(host);
+  const F=slider(row,{label:'thruster force (along body +x)',min:0,max:3,step:.05,value:1.2,unit:'N',dec:2});
+  const w=slider(row,{label:'body spin rate ω',min:-1.5,max:1.5,step:.02,value:.55,unit:'rad/s',dec:2});
+  const br=btnrow(row);
+  let bodyFrame=true;
+  toggle(br,'Apply in body frame',true,v=>bodyFrame=v);
+  button(br,'Reset',()=>{px=py=vx=vy=0;th=0;trail.length=0;});
+  const st=stats(host);
+  st.add('fb','F in BODY',C.frame).add('fw','F in WORLD',C.ch3).add('R','R(θ) row 1').add('p','position',C.ch1).add('sp','speed',C.ch2);
+  let px=0,py=0,vx=0,vy=0,th=0; const trail=[];
+  return{
+    step(dt){dt=Math.min(dt,.03); th+=w.v*dt;
+      const c=Math.cos(th), s=Math.sin(th);
+      const fb=[F.v,0];
+      const fw=bodyFrame?[c*fb[0]-s*fb[1], s*fb[0]+c*fb[1]]:[F.v,0];
+      const m=1.5;
+      vx+=fw[0]/m*dt; vy+=fw[1]/m*dt; px+=vx*dt; py+=vy*dt;
+      if(Math.abs(px)>4||Math.abs(py)>3){px=py=vx=vy=0; trail.length=0;}
+      trail.push([px,py]); if(trail.length>900)trail.shift();
+      st.set('fb','('+nf(fb[0],2)+', '+nf(fb[1],2)+') N');
+      st.set('fw','('+nf(fw[0],2)+', '+nf(fw[1],2)+') N');
+      st.set('R','[ '+nf(c,2)+'  '+nf(-s,2)+' ]');
+      st.set('p','('+nf(px,2)+', '+nf(py,2)+')');
+      st.set('sp',nf(Math.hypot(vx,vy),2)+' m/s');
+      this._fw=fw;},
+    draw(){const {ctx,W,H}=cv; ctx.clearRect(0,0,W,H);
+      const S=Math.min(W/8.6,H/6.2), ox=W*.5, oy=H*.5;
+      const X=x=>ox+x*S, Y=y=>oy-y*S;
+      ctx.strokeStyle=C.rule2;
+      for(let i=-4;i<=4;i++){ctx.beginPath(); ctx.moveTo(X(i),0); ctx.lineTo(X(i),H); ctx.stroke();}
+      for(let i=-3;i<=3;i++){ctx.beginPath(); ctx.moveTo(0,Y(i)); ctx.lineTo(W,Y(i)); ctx.stroke();}
+      arrow(ctx,X(0),Y(0),X(0)+S*.8,Y(0),C.ch1,1.6,7); arrow(ctx,X(0),Y(0),X(0),Y(0)-S*.8,C.ch1,1.6,7);
+      label(ctx,X(0)+S*.8+10,Y(0)+2,'world',C.ch1,9.5,'left');
+      ctx.strokeStyle=C.ch2; ctx.lineWidth=1.6; ctx.beginPath();
+      trail.forEach((p,i)=>{i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]));}); ctx.stroke();
+      const rx=X(px), ry=Y(py), c=Math.cos(th), s=Math.sin(th);
+      const fw=this._fw||[0,0];
+      arrow(ctx,rx,ry,rx+fw[0]*44,ry-fw[1]*44,C.ch3,3,10);
+      label(ctx,rx+fw[0]*44+10,ry-fw[1]*44-10,'F applied',C.ch3,10,'left');
+      ctx.save(); ctx.translate(rx,ry); ctx.rotate(-th);
+      ctx.strokeStyle=C.frame; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(34,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-34); ctx.stroke();
+      ctx.fillStyle='#1a2740'; ctx.strokeStyle=C.frame; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(22,0); ctx.lineTo(-14,13); ctx.lineTo(-9,0); ctx.lineTo(-14,-13);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=C.ch3; ctx.fillRect(-16,-5,7,10);
+      ctx.restore();
+      label(ctx,W/2,20,bodyFrame?'force applied in BODY frame — sweeps with the hull':'force applied in WORLD frame — fixed direction',
+        bodyFrame?C.frame:C.ch1,11);}};
+});
+</script>
+<script>
+/* ================= app ================= */
+initColors();
+const navEl=document.getElementById('nav'), hostEl=document.getElementById('lesson');
+const prevB=document.getElementById('prev'), nextB=document.getElementById('next');
+let idx=0, cur=null, items=[];
+let lastGroup='';
+LESSONS.forEach((l,i)=>{
+  if(l.group!==lastGroup){lastGroup=l.group; navEl.appendChild(el('div','grp',l.group));}
+  const a=el('div','nav-i','<b>'+String(i+1).padStart(2,'0')+'</b><span>'+l.title+'</span>');
+  a.tabIndex=0; a.setAttribute('role','button');
+  const pick=()=>{go(i); document.getElementById('rail').classList.remove('open');};
+  a.onclick=pick;
+  a.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault(); pick();}};
+  navEl.appendChild(a); items.push(a);
+});
+function go(i){
+  idx=clamp(i,0,LESSONS.length-1);
+  const l=LESSONS[idx];
+  items.forEach((a,k)=>a.classList.toggle('on',k===idx));
+  hostEl.innerHTML=''; cur=null;
+  const head=el('div');
+  head.appendChild(el('div','eyebrow','<s></s>'+l.group));
+  head.appendChild(el('h2','title','<span>'+l.title+'</span><em>'+String(idx+1).padStart(2,'0')+' / 22</em>'));
+  head.appendChild(el('p','brief',l.brief));
+  hostEl.appendChild(head);
+  try{ cur=l.build(hostEl); }
+  catch(err){ console.error(err); hostEl.appendChild(el('div','notice','<h5>this panel failed to start</h5><p>'+err.message+'</p>')); }
+  hostEl.appendChild(el('div','notice','<h5>what to notice</h5>'+l.notice));
+  const p=LESSONS[idx-1], n=LESSONS[idx+1];
+  prevB.disabled=!p; nextB.disabled=!n;
+  prevB.innerHTML=p?'<u>previous</u>'+p.title:'<u>start of the sequence</u>';
+  nextB.innerHTML=n?'<u>next</u>'+n.title:'<u>you\u2019ve reached the end</u>';
+  history.replaceState(null,'','#'+(idx+1));
+  window.scrollTo({top:0,behavior:'instant'});
+}
+prevB.onclick=()=>go(idx-1); nextB.onclick=()=>go(idx+1);
+document.getElementById('burger').onclick=()=>document.getElementById('rail').classList.toggle('open');
+let last=performance.now(), warned=false;
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000)||0.016; last=now;
+  if(cur){
+    try{ if(cur.step)cur.step(dt); if(cur.draw)cur.draw(); }
+    catch(e){ if(!warned){console.error(e); warned=true;} }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+const start=parseInt((location.hash||'').replace('#',''),10);
+go(isFinite(start)&&start>=1&&start<=LESSONS.length?start-1:0);
+</script>
+</body>
+</html>
